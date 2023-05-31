@@ -1,9 +1,7 @@
 from copy import deepcopy
-import fractions
-from pprint import pprint
 from enum import Enum, auto
 from signaledge import SignalEdge
-import keyboard, re, time, random, pygame as pg
+import random, pygame as pg, math
 
 pg.init()
 class Game:
@@ -67,7 +65,6 @@ class Game:
 	}
 	typeList = ["I", "J", "L", "O", "S", "T", "Z"]
 
-
 	metaIdToActiveBits = {
 		3840: [8, 9, 10, 11], 	# I0
 		8738: [1, 5, 9, 13],	# IR
@@ -129,7 +126,7 @@ class Game:
 		gameover = auto()
 	
 	def moveActivePieceHorz(self, dir :int):
-		if self.checkActivePieceCollision(self.anchorX+dir, self.anchorY, self.activePiece):
+		if self.checkPieceCollision(self.anchorX+dir, self.anchorY, self.activePiece):
 			return
 		self.anchorX += dir
 
@@ -140,6 +137,7 @@ class Game:
 			self.gameBoard[self.anchorY+yComponent][self.anchorX+xComponent] = minoType
 
 		minY, maxY = self.metaIdToXYBounds[self.activePiece][2:]
+		linesThisPiece = 0
 		for i in range(minY, maxY+1):
 			for cell in self.gameBoard[self.anchorY+i]:
 				if cell == '-':
@@ -147,16 +145,36 @@ class Game:
 			else:
 				self.gameBoard.pop(self.anchorY+i)
 				self.gameBoard.insert(0, ['-' for x in range(10)])
+				linesThisPiece += 1
 
 				# This is where score should be updated for the removal of any lines(s)
 				# self.addScore()
+		
+		match linesThisPiece:
+			case 0:
+				self.score += 0
+			case 1:
+				self.score += 40*((self.totalLines//10)+1)
+			case 2:
+				self.score += 100*((self.totalLines//10)+1)
+			case 3:
+				self.score += 300*((self.totalLines//10)+1)
+			case 4:
+				self.score += 1200*((self.totalLines//10)+1)
 
 
+		self.totalLines += linesThisPiece
 		self.activePiece = self.nextList.pop(0)
 		self.nextList.append(self.typeAndRotToMeta[self.typeList[random.randint(0, 6)]]['0'])
 		self.canHoldPiece = True
 		self.anchorX = 3
 		self.anchorY = -1
+
+		if self.checkPieceCollision(self.anchorX, self.anchorY, self.activePiece):
+			print("Topped out?")
+			self.state = self.States.gameover
+			self.countdownTimer = 4.0
+			
 
 	def updateDisplayedBoard(self):
 		outBoard = deepcopy(self.gameBoard)
@@ -166,7 +184,7 @@ class Game:
 
 		return outBoard
 
-	def checkActivePieceCollision(self, anchorX :int, anchorY :int, metaID :int) -> bool:
+	def checkPieceCollision(self, anchorX :int, anchorY :int, metaID :int) -> bool:
 		"""
 		Returns True if collision is detected for given piece ( {metaID} ) on given XY anchor ( {anchorX, anchorY} )
 		Falsy condition could be for multiple reasons: cell out of bounds, overlap on filled cell	"""
@@ -177,10 +195,10 @@ class Game:
 			if self.gameBoard[anchorY+yComponent][anchorX+xComponent] != '-':
 				return True
 		return False
-	
+
 	def stepActivePieceDown(self):
 		newAnchorY = self.anchorY
-		if not self.checkActivePieceCollision(self.anchorX, newAnchorY+1, self.activePiece):
+		if not self.checkPieceCollision(self.anchorX, newAnchorY+1, self.activePiece):
 			# print(newAnchorY)
 			self.anchorY = newAnchorY+1
 			return
@@ -190,7 +208,7 @@ class Game:
 	
 	def dropActivePieceDown(self):
 		newAnchorY = self.anchorY
-		while not self.checkActivePieceCollision(self.anchorX, newAnchorY+1, self.activePiece):
+		while not self.checkPieceCollision(self.anchorX, newAnchorY+1, self.activePiece):
 			newAnchorY += 1
 		self.anchorY = newAnchorY
 		self.placePiece()
@@ -237,7 +255,7 @@ class Game:
 		# iterate through each available test
 		for xKick, yKick in kickTests:
 			# if test does not collide, return
-			if not self.checkActivePieceCollision(self.anchorX+xKick, self.anchorY-yKick, self.typeAndRotToMeta[pieceType][newRot]):
+			if not self.checkPieceCollision(self.anchorX+xKick, self.anchorY-yKick, self.typeAndRotToMeta[pieceType][newRot]):
 				return (xKick, -yKick)
 		return (69, 420) # No tests work, abort rotation
 
@@ -270,8 +288,8 @@ class Game:
 		self.activePiece = self.typeAndRotToMeta[pieceType][newRot]
 
 	def holdActivePiece(self):
-		# if not self.canHoldPiece:
-		# 	return
+		if not self.canHoldPiece:
+			return
 		
 		self.anchorX = 3
 		self.anchorY = -1
@@ -287,6 +305,12 @@ class Game:
 		self.activePiece = self.heldPiece
 		self.heldPiece = temp
 
+	def calcShadowPos(self):
+		newAnchorY = self.anchorY
+		while not self.checkPieceCollision(self.anchorX, newAnchorY+1, self.activePiece):
+			newAnchorY += 1
+		return newAnchorY
+
 	def __init__(self):
 		self.gameBoard :list[list[str]] = [['-' for x in range(10)] for x in range(20)]
 		
@@ -298,6 +322,11 @@ class Game:
 		self.heldPiece = 0
 		self.anchorX :int= 3
 		self.anchorY :int= -1
+		self.totalLines = 0
+		self.score = 0
+		self.state = self.States.countdown
+		self.countdownTimer = 3.0
+
 
 class Display:
 	levelFont = pg.font.SysFont('calibri', 62)
@@ -307,6 +336,12 @@ class Display:
 	# things for key "listener"
 	keyFrameCountCache = {}
 
+	screen = pg.display.set_mode((1200, 900))
+	pg.display.set_caption("Tetris")
+	clock = pg.time.Clock()
+
+
+	background = pg.image.load('./assets/board.png')
 	typeToImage = {
 		'I': pg.image.load('./assets/i.png'),
 		'J': pg.image.load('./assets/j.png'),
@@ -317,12 +352,24 @@ class Display:
 		'T': pg.image.load('./assets/t.png'),
 	}
 
-	shadowTexture = pg.Surface(pg.Vector2(40, 40))
-	# top, left, right, bottom, (top to bottom)
-	pg.draw.polygon(shadowTexture, (191, 191, 191, 255), [pg.Vector2( 0,  0), pg.Vector2( 2,  2), pg.Vector2(37,  2), pg.Vector2(40,  0)])
-	pg.draw.polygon(shadowTexture, (128, 128, 128, 255), [pg.Vector2( 0,  0), pg.Vector2( 2,  2), pg.Vector2( 2, 37), pg.Vector2( 0, 40)])
-	pg.draw.polygon(shadowTexture, (128, 128, 128, 255), [pg.Vector2(40,  0), pg.Vector2(37,  2), pg.Vector2(37, 37), pg.Vector2(40, 40)])
-	pg.draw.polygon(shadowTexture, ( 91,  91,  91, 255), [pg.Vector2(40, 40), pg.Vector2(37, 37), pg.Vector2( 2, 37), pg.Vector2( 0, 40)])
+	typeToShadowImage = {}
+
+	blackSurface = pg.Surface((screen.get_width(), screen.get_height()))
+	blackSurface.fill((0, 0, 0))
+
+	for k, v in typeToImage.items():
+		shadowTexture = pg.Surface(pg.Vector2(40, 40), pg.SRCALPHA, 32)
+
+		skew = 1
+		swatch = v.get_at((20, 20))
+		shadowColor = pg.Color([x*y for x, y in zip(swatch, [skew, skew, skew])])
+		
+		pg.draw.polygon(shadowTexture, shadowColor, [pg.Vector2( 1,  1), pg.Vector2( 3,  3), pg.Vector2(37,  3), pg.Vector2(39,  1)])
+		pg.draw.polygon(shadowTexture, shadowColor, [pg.Vector2( 1,  1), pg.Vector2( 3,  3), pg.Vector2( 3, 37), pg.Vector2( 1, 39)])
+		pg.draw.polygon(shadowTexture, shadowColor, [pg.Vector2(39,  1), pg.Vector2(37,  3), pg.Vector2(37, 37), pg.Vector2(39, 39)])
+		pg.draw.polygon(shadowTexture, shadowColor, [pg.Vector2(39, 39), pg.Vector2(37, 37), pg.Vector2( 3, 37), pg.Vector2( 1, 39)])
+
+		typeToShadowImage[k] = shadowTexture
 
 	nextPositions = {
 		'I': (-40,   0),
@@ -334,8 +381,6 @@ class Display:
 		'T': (-20, -20),
 	}
 
-
-
 	def checkIfKeyShouldExec(self, keycode :int, keys :list[int]):
 		if not keys[keycode]  or  (not keycode in self.keyFrameCountCache):
 			self.keyFrameCountCache[keycode] = -1
@@ -344,29 +389,27 @@ class Display:
 		self.keyFrameCountCache[keycode] += 1
 
 		v = self.keyFrameCountCache[keycode]
-		return ((v < 1) or ((v//3) > 5 and (v%3)==0))
+		spamFrequency = 4		# in frames
+		delayBeforeSpam = 4 	# in frames
+		return ((v < 1) or ((v//spamFrequency) > delayBeforeSpam and (v%spamFrequency)==0))
 	
-	def drawShadow(self):
-		...
+	def drawShadow_Playing(self):
+		shadowAnchorY = self.game.calcShadowPos()
 
+		pieceType, pieceRot = self.game.metaIdToTypeAndRot[self.game.activePiece]
+		for cellX, cellY in list(map(lambda x: ((15-x)%4, (15-x)//4), self.game.metaIdToActiveBits[self.game.activePiece])):
+			x, y = self.gridToCoord(self.game.anchorX+cellX, shadowAnchorY+cellY)
+			self.screen.blit(self.typeToShadowImage[pieceType], (x, y, 40, 40))
 
-	def drawWindow(self):
-		self.screen.blit(self.background, (0,0))
-
-		self.renderHold()
-		self.renderNextList()
-		self.drawShadow()
-		self.drawBoard()
-
-	def renderLevel(self):
-		levelText = Display.levelFont.render("LEVEL: "+ str(self.game.level), 1, (255, 255, 255))
+	def drawLevel_Playing(self):
+		levelText = Display.levelFont.render("LEVEL: "+ str(self.game.totalLines//10), 1, (255, 255, 255))
 		self.screen.blit(levelText, (195 - levelText.get_width()/2 , 417 - levelText.get_height()/2))
 
-	def renderScore(self):
+	def drawScore_Playing(self):
 		scoreText = Display.scoreFont.render(str(self.game.score), 1, (255, 255, 255))
 		self.screen.blit(scoreText, (195 - scoreText.get_width()/2 , 656 - scoreText.get_height()/2))
 
-	def renderHold(self):
+	def drawHold_Playing(self):
 		if self.game.heldPiece != 0:
 			for x, y in list(map(lambda x: ((15-x)%4, (15-x)//4), self.game.metaIdToActiveBits[self.game.heldPiece])):
 				self.screen.blit(
@@ -376,8 +419,7 @@ class Display:
 					40, 40) 																					 # Image Width, Height :int
 				)
 
-
-	def renderNextList(self):
+	def drawNextList_Playing(self):
 		for i, metaID in enumerate(self.game.nextList):
 			for x, y in list(map(lambda x: ((15-x)%4, (15-x)//4), self.game.metaIdToActiveBits[metaID])):
 				self.screen.blit(
@@ -387,6 +429,14 @@ class Display:
 					40, 40)																						 # Image Width, Height :int
 				)
 
+	def drawBoard_Playing(self):
+		board = self.game.updateDisplayedBoard()
+		for j in range(len(board)):
+			for i in range(len(board[j])):
+				if board[j][i] != '-':
+					tup = self.gridToCoord(i, j)
+					image = self.typeToImage[board[j][i].upper()]
+					self.screen.blit(image, (tup[0], tup[1], 40, 40))
 
 	def gridToCoord(self, x, y) -> tuple[int, int]:
 		x *= 40
@@ -396,19 +446,72 @@ class Display:
 		tup = (x, y)
 		return tup
 
-	def drawBoard(self):
-		board = self.game.updateDisplayedBoard()
-		for j in range(len(board)):
-			for i in range(len(board[j])):
-				if board[j][i] != '-':
-					tup = self.gridToCoord(i, j)
-					image = self.typeToImage[board[j][i].upper()]
-					self.screen.blit(image, (tup[0], tup[1], 40, 40))
-	
-	def shouldContinue(self):
-		return not self.pause
+	def drawWindow(self):
+		w, h = (self.screen.get_width(), self.screen.get_height())
+		self.screen.blit(self.blackSurface, (0,0))
+		match self.game.state:
+			case self.game.States.playing:
+				self.screen.blit(self.background, (0,0))
+				self.drawHold_Playing()
+				self.drawNextList_Playing()
+				self.drawShadow_Playing()
+				self.drawLevel_Playing()
+				self.drawScore_Playing()
+				self.drawBoard_Playing()
 
-			
+			case self.game.States.menu:
+				menuText = Display.levelFont.render("Paused, Esc to unpause", 1, (255, 255, 255))
+				self.screen.blit(menuText, (((w - menuText.get_width())/2 , (h - menuText.get_height()-40)/2)))
+
+
+			case self.game.States.countdown:
+				countdownText = Display.levelFont.render(str(math.ceil(self.game.countdownTimer)), 1, (255, 255, 255))
+				self.screen.blit(countdownText, (((w - countdownText.get_width())/2 , (h - countdownText.get_height()-40)/2)))
+
+			case self.game.States.gameover:
+				gameOverText = Display.scoreFont.render("Game Over", 1, (255, 255, 255))
+				restartingText = Display.levelFont.render("Restarting...", 1, (255, 255, 255))
+				self.screen.blit(gameOverText, (((w - gameOverText.get_width())/2 , (h - gameOverText.get_height()-40)/2)))
+				self.screen.blit(restartingText, (((w - restartingText.get_width())/2 , (h + gameOverText.get_height()+40-restartingText.get_height())/2)))
+
+
+	def pseudoFramesByLevel(self, level):
+		if level > 29:
+			level = 29
+		speed = {
+			0 : 48,
+			1 :	43,
+			2 :	38,
+			3 :	33,
+			4 :	28,
+			5 :	23,
+			6 :	18,
+			7 :	13,
+			8 :	8,
+			9 :	6,
+			10:	5,
+			11: 5,
+			12:	5,
+			13: 4,
+			14: 4,
+			15:	4,
+			16: 3,
+			17: 3,
+			18:	3,
+			19: 2,
+			20: 2,
+			21: 2,
+			22: 2,
+			23: 2,
+			24: 2,
+			25: 2,
+			26: 2,
+			27: 2,
+			28:	2,
+			29:	1,
+		}
+		return speed[level]
+		
 	def __init__(self):
 		self.keyFrameCountCache = {}
 
@@ -418,12 +521,7 @@ class Display:
 		self.pseudoFrameCount = 0
 		self.pseudoFrameCountDelta = 0
 		self.pseudoFrameCountLastTrigger = 0
-		
-		self.screen = pg.display.set_mode((1200, 900))
-		pg.display.set_caption("Tetris")
-		self.background = pg.image.load('./assets/board.png')
-		clock = pg.time.Clock()
-		
+				
 		fTimeElapsed = 0
 		iFrameCount = -1
 
@@ -433,7 +531,7 @@ class Display:
 
 		while run:
 			iFrameCount += 1
-			dt = clock.tick_busy_loop()/1000
+			dt = self.clock.tick_busy_loop()/1000
 			fTimeElapsed += dt
 			self.pseudoFrameCount = self.pseudoFrameCountDelta + (fTimeElapsed*self.pseudoFramesPerSecond)//1
 
@@ -446,52 +544,65 @@ class Display:
 					quit()
 				if e.type == pg.KEYDOWN:
 					if e.key == pg.K_ESCAPE:
-						self.pause = not self.pause
-					if not self.shouldContinue():
+						match self.game.state:
+							case self.game.States.menu:
+								self.game.state = self.game.States.countdown
+								self.game.countdownTimer = 3.0
+							case self.game.States.playing:
+								self.game.state = self.game.States.menu
+
+					if e.key == pg.K_p:
+						self.game.totalLines += 10
+						# self.game.state = self.game.States.playing
+					if self.game.state != self.game.States.playing:
 						break
 					if e.key == pg.K_c:
 						self.game.holdActivePiece()
-					if e.key == pg.K_p:
-						g = self.game
-						print(f"<{self.game.anchorX}, {self.game.anchorY}>")
-						# for piece in self.game.nextList:
-						# 	print(self.game.metaIdToTypeAndRot[piece])
 
-			if not self.shouldContinue():
-				continue
+			match self.game.state:
+				case self.game.States.playing:
 
-			# self.game.rotateActivePiece(-1)
-			# self.game.rotateActivePiece(-1)
-
-			keys = pg.key.get_pressed()
-			buttons = pg.mouse.get_pressed()
+					keys = pg.key.get_pressed()
+					buttons = pg.mouse.get_pressed()
 
 
 
-			if self.checkIfKeyShouldExec(pg.K_a, keys):
-				self.game.moveActivePieceHorz(-1)
-			if self.checkIfKeyShouldExec(pg.K_d, keys):
-				self.game.moveActivePieceHorz( 1)
-			if self.checkIfKeyShouldExec(pg.K_z, keys):
-				self.game.rotateActivePiece(-1)
-			if self.checkIfKeyShouldExec(pg.K_w, keys):
-				self.game.rotateActivePiece( 1)
+					if self.checkIfKeyShouldExec(pg.K_a, keys):
+						self.game.moveActivePieceHorz(-1)
+					if self.checkIfKeyShouldExec(pg.K_d, keys):
+						self.game.moveActivePieceHorz( 1)
+					if self.checkIfKeyShouldExec(pg.K_z, keys):
+						self.game.rotateActivePiece(-1)
+					if self.checkIfKeyShouldExec(pg.K_w, keys):
+						self.game.rotateActivePiece( 1)
 
-			if self.checkIfKeyShouldExec(pg.K_s, keys):
-				self.game.stepActivePieceDown()
-				self.pseudoFrameCountDelta -= self.pseudoFrameCount % 29 + 1
+					if self.checkIfKeyShouldExec(pg.K_s, keys):
+						self.game.stepActivePieceDown()
+						self.pseudoFrameCountDelta -= self.pseudoFrameCount % self.pseudoFramesByLevel(self.game.totalLines//10) + 1
 
-			if SignalEdge.getRisingEdge(keys[pg.K_SPACE], pg.K_SPACE):
-				self.game.dropActivePieceDown()
-				self.pseudoFrameCountDelta -= self.pseudoFrameCount % 29 + 1
+					if SignalEdge.getRisingEdge(keys[pg.K_SPACE], pg.K_SPACE):
+						self.game.dropActivePieceDown()
+						self.pseudoFrameCountDelta -= self.pseudoFrameCount % self.pseudoFramesByLevel(self.game.totalLines//10) + 1
 
 
-			if (self.pseudoFrameCount % 29) == 0 and self.pseudoFrameCount != self.pseudoFrameCountLastTrigger:
-				self.pseudoFrameCountLastTrigger = self.pseudoFrameCount
-				self.game.stepActivePieceDown()
-			
-			# self.game.dropActivePieceDown()
+					if (self.pseudoFrameCount % self.pseudoFramesByLevel(self.game.totalLines//10)) == 0 and self.pseudoFrameCount != self.pseudoFrameCountLastTrigger:
+						self.pseudoFrameCountLastTrigger = self.pseudoFrameCount
+						self.game.stepActivePieceDown()
 
+				case self.game.States.menu:
+					pass
+
+				case self.game.States.countdown:
+					self.game.countdownTimer -= dt
+					if self.game.countdownTimer < 0:
+						self.game.state = self.game.States.playing
+						
+
+				case self.game.States.gameover:
+					self.game.countdownTimer -= dt
+					if self.game.countdownTimer < 0:
+						self.game = Game()
+						self.game.state = self.game.States.countdown
 
 
 
