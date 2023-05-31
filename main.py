@@ -174,8 +174,6 @@ class Game:
 		if sum(list(map(lambda x: (not (0<=anchorX+((15-x)%4)<10))+(not (0<=anchorY+((15-x)//4)<20)), self.metaIdToActiveBits[metaID]))):
 			return True
 		for xComponent, yComponent in list(map(lambda x: ((15-x)%4, (15-x)//4), self.metaIdToActiveBits[metaID])):
-			if anchorY+yComponent > len(self.gameBoard):
-				...
 			if self.gameBoard[anchorY+yComponent][anchorX+xComponent] != '-':
 				return True
 		return False
@@ -234,16 +232,13 @@ class Game:
 				kickTests = [(0, 0), (-2, 0), (+1, 0), (-2,+1), (+1,-2)]
 			case ('0', 'L', True):
 				kickTests = [(0, 0), (+2, 0), (-1, 0), (-1,+2), (+2,-1)]
-			case _:
-				print(oldRot, newRot, pieceType=="I")
 
 		
 		# iterate through each available test
 		for xKick, yKick in kickTests:
-
 			# if test does not collide, return
-			if not self.checkActivePieceCollision(self.anchorX+xKick, self.anchorY+yKick, self.typeAndRotToMeta[pieceType][newRot]):
-				return (xKick, yKick)
+			if not self.checkActivePieceCollision(self.anchorX+xKick, self.anchorY-yKick, self.typeAndRotToMeta[pieceType][newRot]):
+				return (xKick, -yKick)
 		return (69, 420) # No tests work, abort rotation
 
 	def rotateActivePiece(self, dir :int):
@@ -274,7 +269,6 @@ class Game:
 		self.anchorX += xKick; self.anchorY += yKick
 		self.activePiece = self.typeAndRotToMeta[pieceType][newRot]
 
-
 	def holdActivePiece(self):
 		# if not self.canHoldPiece:
 		# 	return
@@ -292,14 +286,13 @@ class Game:
 		temp = self.typeAndRotToMeta[self.metaIdToTypeAndRot[self.activePiece][0]]['0']
 		self.activePiece = self.heldPiece
 		self.heldPiece = temp
-		
-
 
 	def __init__(self):
 		self.gameBoard :list[list[str]] = [['-' for x in range(10)] for x in range(20)]
 		
-		self.activePiece = 3840
-		# self.activePiece :int = self.typeAndRotToMeta[self.typeList[random.randint(0, 6)]]['0']
+		
+		# self.activePiece = 1124
+		self.activePiece :int = self.typeAndRotToMeta[self.typeList[random.randint(0, 6)]]['0']
 		self.nextList = [self.typeAndRotToMeta[self.typeList[random.randint(0, 6)]]['0'], self.typeAndRotToMeta[self.typeList[random.randint(0, 6)]]['0'], self.typeAndRotToMeta[self.typeList[random.randint(0, 6)]]['0']]
 		self.canHoldPiece = True
 		self.heldPiece = 0
@@ -324,6 +317,13 @@ class Display:
 		'T': pg.image.load('./assets/t.png'),
 	}
 
+	shadowTexture = pg.Surface(pg.Vector2(40, 40))
+	# top, left, right, bottom, (top to bottom)
+	pg.draw.polygon(shadowTexture, (191, 191, 191, 255), [pg.Vector2( 0,  0), pg.Vector2( 2,  2), pg.Vector2(37,  2), pg.Vector2(40,  0)])
+	pg.draw.polygon(shadowTexture, (128, 128, 128, 255), [pg.Vector2( 0,  0), pg.Vector2( 2,  2), pg.Vector2( 2, 37), pg.Vector2( 0, 40)])
+	pg.draw.polygon(shadowTexture, (128, 128, 128, 255), [pg.Vector2(40,  0), pg.Vector2(37,  2), pg.Vector2(37, 37), pg.Vector2(40, 40)])
+	pg.draw.polygon(shadowTexture, ( 91,  91,  91, 255), [pg.Vector2(40, 40), pg.Vector2(37, 37), pg.Vector2( 2, 37), pg.Vector2( 0, 40)])
+
 	nextPositions = {
 		'I': (-40,   0),
 		'J': (-20, -20),
@@ -345,13 +345,17 @@ class Display:
 
 		v = self.keyFrameCountCache[keycode]
 		return ((v < 1) or ((v//3) > 5 and (v%3)==0))
+	
+	def drawShadow(self):
+		...
+
 
 	def drawWindow(self):
 		self.screen.blit(self.background, (0,0))
 
 		self.renderHold()
 		self.renderNextList()
-		# self.drawShadow()
+		self.drawShadow()
 		self.drawBoard()
 
 	def renderLevel(self):
@@ -398,8 +402,11 @@ class Display:
 			for i in range(len(board[j])):
 				if board[j][i] != '-':
 					tup = self.gridToCoord(i, j)
-					image = self.typeToImage[board[j][i]]
+					image = self.typeToImage[board[j][i].upper()]
 					self.screen.blit(image, (tup[0], tup[1], 40, 40))
+	
+	def shouldContinue(self):
+		return not self.pause
 
 			
 	def __init__(self):
@@ -433,23 +440,33 @@ class Display:
 			self.drawWindow()
 			pg.display.update()
 
-
-			keys = pg.key.get_pressed()
-			buttons = pg.mouse.get_pressed()
-
 			for e in pg.event.get():
 				if e.type == pg.QUIT:
 					pg.quit()
 					quit()
 				if e.type == pg.KEYDOWN:
-					if e.key == pg.K_c:
-						self.game.holdActivePiece()
 					if e.key == pg.K_ESCAPE:
 						self.pause = not self.pause
+					if not self.shouldContinue():
+						break
+					if e.key == pg.K_c:
+						self.game.holdActivePiece()
 					if e.key == pg.K_p:
 						g = self.game
-						for piece in self.game.nextList:
-							print(self.game.metaIdToTypeAndRot[piece])
+						print(f"<{self.game.anchorX}, {self.game.anchorY}>")
+						# for piece in self.game.nextList:
+						# 	print(self.game.metaIdToTypeAndRot[piece])
+
+			if not self.shouldContinue():
+				continue
+
+			# self.game.rotateActivePiece(-1)
+			# self.game.rotateActivePiece(-1)
+
+			keys = pg.key.get_pressed()
+			buttons = pg.mouse.get_pressed()
+
+
 
 			if self.checkIfKeyShouldExec(pg.K_a, keys):
 				self.game.moveActivePieceHorz(-1)
