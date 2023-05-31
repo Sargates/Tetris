@@ -6,4 +6,4 @@ https://www.pygame.org/
 
 Permissions:
 You are not allowed to claim ownership of this project.
-Feel free to download and modify to your hearts content.
+Feel free to download and modify to your heart's content.
