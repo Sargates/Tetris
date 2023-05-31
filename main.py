@@ -3,6 +3,13 @@ from enum import Enum, auto
 from signaledge import SignalEdge
 import random, pygame as pg, math
 
+# 
+# Tetris, by Nick Gates, 5/31/23
+# Requires Pygame package, setup.py included
+# 
+
+
+
 pg.init()
 class Game:
 	#	    0      90    180    270
@@ -13,6 +20,16 @@ class Game:
 	# S : 01728  01122  00108  02244
 	# T : 01248  01124  00228  01220
 	# Z : 03168  00612  00198  01224
+
+	"""
+	Pieces are encoded like this:
+	Imagine a 4x4 grid of cells, each cell is either filled or not, 2^16 bits can represent any combination like this
+	Because there are only 4 rotations of a given type of piece (i.e. 'I', 'J', 'T', etc.), any and every piece can
+	be given a "meta id" based on which 4 of the 16 bits are active. Any rotation of a piece is just a permutation 
+	of those 4 bits. Things like color can be deduced by using a hashmap. The x and y components for the anchor of
+	the active piece describe the top left of the 4x4 grid of cells. Hopefully that makes sense.
+	"""
+	
 	typeAndRotToMeta = {
 		"I" : {
 			"0": 3840,
@@ -146,9 +163,6 @@ class Game:
 				self.gameBoard.pop(self.anchorY+i)
 				self.gameBoard.insert(0, ['-' for x in range(10)])
 				linesThisPiece += 1
-
-				# This is where score should be updated for the removal of any lines(s)
-				# self.addScore()
 		
 		match linesThisPiece:
 			case 0:
@@ -171,7 +185,6 @@ class Game:
 		self.anchorY = -1
 
 		if self.checkPieceCollision(self.anchorX, self.anchorY, self.activePiece):
-			print("Topped out?")
 			self.state = self.States.gameover
 			self.countdownTimer = 4.0
 			
@@ -186,7 +199,7 @@ class Game:
 
 	def checkPieceCollision(self, anchorX :int, anchorY :int, metaID :int) -> bool:
 		"""
-		Returns True if collision is detected for given piece ( {metaID} ) on given XY anchor ( {anchorX, anchorY} )
+		Returns True if collision is detected for given piece ( {metaID} ) at given XY anchor ( {anchorX, anchorY} )
 		Falsy condition could be for multiple reasons: cell out of bounds, overlap on filled cell	"""
 
 		if sum(list(map(lambda x: (not (0<=anchorX+((15-x)%4)<10))+(not (0<=anchorY+((15-x)//4)<20)), self.metaIdToActiveBits[metaID]))):
@@ -382,6 +395,8 @@ class Display:
 	}
 
 	def checkIfKeyShouldExec(self, keycode :int, keys :list[int]):
+		# method that's meant to add 'delay before spam' functionality to the holding of keys
+
 		if not keys[keycode]  or  (not keycode in self.keyFrameCountCache):
 			self.keyFrameCountCache[keycode] = -1
 			return False
@@ -551,9 +566,8 @@ class Display:
 							case self.game.States.playing:
 								self.game.state = self.game.States.menu
 
-					if e.key == pg.K_p:
+					if e.key == pg.K_p: # debug key
 						self.game.totalLines += 10
-						# self.game.state = self.game.States.playing
 					if self.game.state != self.game.States.playing:
 						break
 					if e.key == pg.K_c:
@@ -606,9 +620,5 @@ class Display:
 
 
 
-
-
-
-
-# pprint(Game.typeToActiveBits)
-Display()
+if __name__ == "__main__":
+	Display()
