@@ -179,13 +179,14 @@ class Game:
 
 		self.totalLines += linesThisPiece
 		self.activePiece = self.nextList.pop(0)
-		self.nextList.append(self.typeAndRotToMeta[self.typeList[random.randint(0, 6)]]['0'])
+		self.addNextPiece()
 		self.canHoldPiece = True
 		self.anchorX = 3
 		self.anchorY = -1
 
 		if self.checkPieceCollision(self.anchorX, self.anchorY, self.activePiece):
 			self.state = self.States.gameover
+			print(self)
 			self.countdownTimer = 4.0
 			
 
@@ -231,38 +232,22 @@ class Game:
 			return (0, 0)
 		
 		match (oldRot, newRot, pieceType=="I"):
-			case ('0', 'R', False):
-				kickTests = [(0, 0), (-1, 0), (-1,+1), ( 0,-2), (-1,-2)]
-			case ('R', '0', False):
-				kickTests = [(0, 0), (+1, 0), (+1,-1), ( 0,+2), (+1,+2)]
-			case ('R', '2', False):
-				kickTests = [(0, 0), (+1, 0), (+1,-1), ( 0,+2), (+1,+2)]
-			case ('2', 'R', False):
-				kickTests = [(0, 0), (-1, 0), (-1,+1), ( 0,-2), (-1,-2)]
-			case ('2', 'L', False):
-				kickTests = [(0, 0), (+1, 0), (+1,+1), ( 0,-2), (+1,-2)]
-			case ('L', '2', False):
-				kickTests = [(0, 0), (-1, 0), (-1,-1), ( 0,+2), (-1,+2)]
-			case ('L', '0', False):
-				kickTests = [(0, 0), (-1, 0), (-1,-1), ( 0,+2), (-1,+2)]
-			case ('0', 'L', False):
-				kickTests = [(0, 0), (+1, 0), (+1,+1), ( 0,-2), (+1,-2)]
-			case ('0', 'R', True):
-				kickTests = [(0, 0), (-2, 0), (+1, 0), (+1,+2), (-2,-1)]
-			case ('R', '0', True):
-				kickTests = [(0, 0), (+2, 0), (-1, 0), (+2,+1), (-1,-2)]
-			case ('R', '2', True):
-				kickTests = [(0, 0), (-1, 0), (+2, 0), (-1,+2), (+2,-1)]
-			case ('2', 'R', True):
-				kickTests = [(0, 0), (-2, 0), (+1, 0), (-2,+1), (+1,-1)]
-			case ('2', 'L', True):
-				kickTests = [(0, 0), (+2, 0), (-1, 0), (+2,+1), (-1,-1)]
-			case ('L', '2', True):
-				kickTests = [(0, 0), (+1, 0), (-2, 0), (+1,+2), (-2,-1)]
-			case ('L', '0', True):
-				kickTests = [(0, 0), (-2, 0), (+1, 0), (-2,+1), (+1,-2)]
-			case ('0', 'L', True):
-				kickTests = [(0, 0), (+2, 0), (-1, 0), (-1,+2), (+2,-1)]
+			case ('0', 'R', False): kickTests = [(0, 0), (-1, 0), (-1,+1), ( 0,-2), (-1,-2)]
+			case ('R', '0', False): kickTests = [(0, 0), (+1, 0), (+1,-1), ( 0,+2), (+1,+2)]
+			case ('R', '2', False): kickTests = [(0, 0), (+1, 0), (+1,-1), ( 0,+2), (+1,+2)]
+			case ('2', 'R', False): kickTests = [(0, 0), (-1, 0), (-1,+1), ( 0,-2), (-1,-2)]
+			case ('2', 'L', False): kickTests = [(0, 0), (+1, 0), (+1,+1), ( 0,-2), (+1,-2)]
+			case ('L', '2', False): kickTests = [(0, 0), (-1, 0), (-1,-1), ( 0,+2), (-1,+2)]
+			case ('L', '0', False): kickTests = [(0, 0), (-1, 0), (-1,-1), ( 0,+2), (-1,+2)]
+			case ('0', 'L', False): kickTests = [(0, 0), (+1, 0), (+1,+1), ( 0,-2), (+1,-2)]
+			case ('0', 'R', True): kickTests = [(0, 0), (-2, 0), (+1, 0), (+1,+2), (-2,-1)]
+			case ('R', '0', True): kickTests = [(0, 0), (+2, 0), (-1, 0), (+2,+1), (-1,-2)]
+			case ('R', '2', True): kickTests = [(0, 0), (-1, 0), (+2, 0), (-1,+2), (+2,-1)]
+			case ('2', 'R', True): kickTests = [(0, 0), (-2, 0), (+1, 0), (-2,+1), (+1,-1)]
+			case ('2', 'L', True): kickTests = [(0, 0), (+2, 0), (-1, 0), (+2,+1), (-1,-1)]
+			case ('L', '2', True): kickTests = [(0, 0), (+1, 0), (-2, 0), (+1,+2), (-2,-1)]
+			case ('L', '0', True): kickTests = [(0, 0), (-2, 0), (+1, 0), (-2,+1), (+1,-2)]
+			case ('0', 'L', True): kickTests = [(0, 0), (+2, 0), (-1, 0), (-1,+2), (+2,-1)]
 
 		
 		# iterate through each available test
@@ -277,28 +262,33 @@ class Game:
 
 		assert dir in [ 1, -1], "Variable 'dir' must be of type 'int' with value '1' or '-1'"
 		match (pieceRot, dir):
-			case ('0',  1):
-				newRot = 'R'
-			case ('R',  1):
-				newRot = '2'
-			case ('R', -1):
-				newRot = '0'
-			case ('2',  1):
-				newRot = 'L'
-			case ('2', -1):
-				newRot = 'R'
-			case ('L',  1):
-				newRot = '0'
-			case ('L', -1):
-				newRot = '2'
-			case ('0', -1):
-				newRot = 'L'
+			case ('0',  1): newRot = 'R'
+			case ('R',  1): newRot = '2'
+			case ('R', -1): newRot = '0'
+			case ('2',  1): newRot = 'L'
+			case ('2', -1): newRot = 'R'
+			case ('L',  1): newRot = '0'
+			case ('L', -1): newRot = '2'
+			case ('0', -1): newRot = 'L'
 		
 		xKick, yKick = self.getNeededKick(pieceRot, newRot, pieceType)
 		if xKick == 69: # No rotation test succeeded, abort
 			return
 		self.anchorX += xKick; self.anchorY += yKick
 		self.activePiece = self.typeAndRotToMeta[pieceType][newRot]
+	
+	def addNextPiece(self):
+		newPieceType = self.typeList[random.randint(0, 6)]
+		if self.droughtCounter >= 25:
+			newPieceType = "I"
+			print("Drought Exceeded")
+			self.droughtCounter = 0
+		elif newPieceType == "I":
+			self.droughtCounter = 0
+		else:
+			self.droughtCounter += 1
+
+		self.nextList.append(self.typeAndRotToMeta[newPieceType]['0'])
 
 	def holdActivePiece(self):
 		if not self.canHoldPiece:
@@ -311,9 +301,9 @@ class Game:
 		if self.heldPiece == 0:
 			self.heldPiece = self.typeAndRotToMeta[self.metaIdToTypeAndRot[self.activePiece][0]]['0']
 			self.activePiece = self.nextList.pop(0)
-			self.nextList.append(self.typeAndRotToMeta[self.typeList[random.randint(0, 6)]]['0'])
+			self.addNextPiece()
 			return
-		
+
 		temp = self.typeAndRotToMeta[self.metaIdToTypeAndRot[self.activePiece][0]]['0']
 		self.activePiece = self.heldPiece
 		self.heldPiece = temp
@@ -330,7 +320,8 @@ class Game:
 		
 		# self.activePiece = 1124
 		self.activePiece :int = self.typeAndRotToMeta[self.typeList[random.randint(0, 6)]]['0']
-		self.nextList = [self.typeAndRotToMeta[self.typeList[random.randint(0, 6)]]['0'], self.typeAndRotToMeta[self.typeList[random.randint(0, 6)]]['0'], self.typeAndRotToMeta[self.typeList[random.randint(0, 6)]]['0']]
+		self.droughtCounter = 0
+		self.nextList = []; self.addNextPiece(); self.addNextPiece(); self.addNextPiece()
 		self.canHoldPiece = True
 		self.heldPiece = 0
 		self.anchorX :int= 3
@@ -339,6 +330,19 @@ class Game:
 		self.score = 0
 		self.state = self.States.countdown
 		self.countdownTimer = 3.0
+	
+	def __str__(self):
+		o = ""
+		o += f"Total Lines: {self.totalLines}\n"
+		o += f"Level: 		{self.totalLines//10}\n"
+		o += f"Score:		{self.score}"
+		return o
+
+
+
+
+
+
 
 
 class Display:
@@ -567,9 +571,9 @@ class Display:
 								self.game.state = self.game.States.menu
 
 					if e.key == pg.K_p: # debug key
-						self.game.totalLines += 10
+						print(self.game.droughtCounter)
 					if self.game.state != self.game.States.playing:
-						break
+						continue
 					if e.key == pg.K_c:
 						self.game.holdActivePiece()
 
