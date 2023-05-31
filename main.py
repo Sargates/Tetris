@@ -15,7 +15,7 @@ class Game:
 	# S : 01728  01122  00108  02244
 	# T : 01248  01124  00228  01220
 	# Z : 03168  00612  00198  01224
-	typeToMeta = {
+	typeAndRotToMeta = {
 		"I" : {
 			"0": 3840,
 			"R": 8738,
@@ -102,7 +102,7 @@ class Game:
 		1224: [3, 6, 7, 10],	# ZL
 	}
 	metaIdToTypeAndRot = {}
-	for outerK, outerV in typeToMeta.items():
+	for outerK, outerV in typeAndRotToMeta.items():
 		for innerK, innerV in outerV.items():
 			metaIdToTypeAndRot[innerV] = outerK+innerK
 	
@@ -129,20 +129,14 @@ class Game:
 		gameover = auto()
 	
 	def moveActivePieceHorz(self, dir :int):
-		self.anchorX += dir + self.getNeededEdgeKick(self.activePiece, self.anchorX+dir, self.anchorY)[0]
+		if self.checkActivePieceCollision(self.anchorX+dir, self.anchorY, self.activePiece):
+			return
+		self.anchorX += dir
 
 	def placePiece(self):
-		# if self.activePiece == 0:
-		# 	self.activePiece = self.typeToMeta[self.typeList[random.randint(0, 6)]]['0']
-		# 	self.anchorX = 3
-		# 	self.anchorY = -1
-		# 	return
-
 		minoType, pieceRot = self.metaIdToTypeAndRot[self.activePiece]
-		# print(self.anchorX, self.anchorY)
-		for index in self.metaIdToActiveBits[self.activePiece]:
-			xComponent = (15 - index) %  4
-			yComponent = (15 - index) // 4
+
+		for xComponent, yComponent in list(map(lambda x: ((15-x)%4, (15-x)//4), self.metaIdToActiveBits[self.activePiece])):
 			self.gameBoard[self.anchorY+yComponent][self.anchorX+xComponent] = minoType
 
 		minY, maxY = self.metaIdToXYBounds[self.activePiece][2:]
@@ -159,7 +153,7 @@ class Game:
 
 
 		self.activePiece = self.nextList.pop(0)
-		self.nextList.append(self.typeToMeta[self.typeList[random.randint(0, 6)]]['0'])
+		self.nextList.append(self.typeAndRotToMeta[self.typeList[random.randint(0, 6)]]['0'])
 		self.canHoldPiece = True
 		self.anchorX = 3
 		self.anchorY = -1
@@ -167,84 +161,120 @@ class Game:
 	def updateDisplayedBoard(self):
 		outBoard = deepcopy(self.gameBoard)
 		minoType, pieceRot = self.metaIdToTypeAndRot[self.activePiece]
-		for index in self.metaIdToActiveBits[self.activePiece]:
-			xComponent = (15 - index) %  4
-			yComponent = (15 - index) // 4
-			# print(self.anchorX+xComponent, self.anchorY+yComponent)
+		for xComponent, yComponent in list(map(lambda x: ((15-x)%4, (15-x)//4), self.metaIdToActiveBits[self.activePiece])):
 			outBoard[self.anchorY+yComponent][self.anchorX+xComponent] = minoType
 
 		return outBoard
 
-	def checkCollisionPieceCollision(self, anchorX :int, anchorY :int, metaID :int, offset :tuple[int, int]=(0,0)) -> bool:
-		for bit in self.metaIdToActiveBits[metaID]:
-			xComponent = (15 - bit) %  4
-			yComponent = (15 - bit) // 4
-			if self.gameBoard[anchorY + yComponent + offset[1]][anchorX + xComponent + offset[0]] != '-':
-				break
-		else:
-			return False
-		return True
-	
-	def rotateActivePiece(self, dir :int):
-		pieceType, pieceRot = self.metaIdToTypeAndRot[self.activePiece]
-		assert dir in [1, -1], "Variable 'dir' must be of type 'int' with value '1' or '-1'"
+	def checkActivePieceCollision(self, anchorX :int, anchorY :int, metaID :int) -> bool:
+		"""
+		Returns True if collision is detected for given piece ( {metaID} ) on given XY anchor ( {anchorX, anchorY} )
+		Falsy condition could be for multiple reasons: cell out of bounds, overlap on filled cell	"""
 
-		match pieceRot:
-			case "0":
-				newRot = "R" if dir == 1 else "L"
-			case "R":
-				newRot = "2" if dir == 1 else "0"
-			case "2":
-				newRot = "L" if dir == 1 else "R"
-			case "L":
-				newRot = "0" if dir == 1 else "2"
-		
-		xKick, yKick = self.getNeededEdgeKick(self.typeToMeta[pieceType][newRot], self.anchorX, self.anchorY)
-		self.anchorX += xKick; self.anchorY += yKick
-		self.activePiece = self.typeToMeta[pieceType][newRot]
+		if sum(list(map(lambda x: (not (0<=anchorX+((15-x)%4)<10))+(not (0<=anchorY+((15-x)//4)<20)), self.metaIdToActiveBits[metaID]))):
+			return True
+		for xComponent, yComponent in list(map(lambda x: ((15-x)%4, (15-x)//4), self.metaIdToActiveBits[metaID])):
+			if anchorY+yComponent > len(self.gameBoard):
+				...
+			if self.gameBoard[anchorY+yComponent][anchorX+xComponent] != '-':
+				return True
+		return False
 	
 	def stepActivePieceDown(self):
-		if self.anchorY == 19-self.metaIdToXYBounds[self.activePiece][3]:
-			self.placePiece()
-			return
-
-		if self.checkCollisionPieceCollision(self.anchorX, self.anchorY, self.activePiece, (0, 1)):
-			self.placePiece()
+		newAnchorY = self.anchorY
+		if not self.checkActivePieceCollision(self.anchorX, newAnchorY+1, self.activePiece):
+			# print(newAnchorY)
+			self.anchorY = newAnchorY+1
 			return
 		
-		self.anchorY += 1
+
+		self.placePiece()
 	
 	def dropActivePieceDown(self):
-		while True:
-			if self.anchorY == 19-self.metaIdToXYBounds[self.activePiece][3]:
-				self.placePiece()
-				break
+		newAnchorY = self.anchorY
+		while not self.checkActivePieceCollision(self.anchorX, newAnchorY+1, self.activePiece):
+			newAnchorY += 1
+		self.anchorY = newAnchorY
+		self.placePiece()
 
-			if self.checkCollisionPieceCollision(self.anchorX, self.anchorY, self.activePiece, (0, 1)):
-				self.placePiece()
-				break
-			self.anchorY += 1
-	
-	def getNeededEdgeKick(self, metaID, anchorX, anchorY):
-		minX, maxX, minY, maxY = self.metaIdToXYBounds[metaID]
-
-		o = [0, 0]
-
-		if anchorX + minX <= 0:
-			o[0] = 0 - (anchorX + minX)
-		if 10 <= anchorX + maxX:
-			o[0] = 10 - (anchorX + maxX+1)
-
-		if anchorY + minY <= 0:
-			o[1] = 0 - (anchorY + minY)
-		if 20 <= anchorY + maxY:
-			o[1] = 20 - (anchorY + maxY+1)
+	def getNeededKick(self, oldRot, newRot, pieceType):
+		if pieceType == "O":
+			return (0, 0)
 		
-		if o != [0, 0]:
-			print("Kick applied")
+		match (oldRot, newRot, pieceType=="I"):
+			case ('0', 'R', False):
+				kickTests = [(0, 0), (-1, 0), (-1,+1), ( 0,-2), (-1,-2)]
+			case ('R', '0', False):
+				kickTests = [(0, 0), (+1, 0), (+1,-1), ( 0,+2), (+1,+2)]
+			case ('R', '2', False):
+				kickTests = [(0, 0), (+1, 0), (+1,-1), ( 0,+2), (+1,+2)]
+			case ('2', 'R', False):
+				kickTests = [(0, 0), (-1, 0), (-1,+1), ( 0,-2), (-1,-2)]
+			case ('2', 'L', False):
+				kickTests = [(0, 0), (+1, 0), (+1,+1), ( 0,-2), (+1,-2)]
+			case ('L', '2', False):
+				kickTests = [(0, 0), (-1, 0), (-1,-1), ( 0,+2), (-1,+2)]
+			case ('L', '0', False):
+				kickTests = [(0, 0), (-1, 0), (-1,-1), ( 0,+2), (-1,+2)]
+			case ('0', 'L', False):
+				kickTests = [(0, 0), (+1, 0), (+1,+1), ( 0,-2), (+1,-2)]
+			case ('0', 'R', True):
+				kickTests = [(0, 0), (-2, 0), (+1, 0), (+1,+2), (-2,-1)]
+			case ('R', '0', True):
+				kickTests = [(0, 0), (+2, 0), (-1, 0), (+2,+1), (-1,-2)]
+			case ('R', '2', True):
+				kickTests = [(0, 0), (-1, 0), (+2, 0), (-1,+2), (+2,-1)]
+			case ('2', 'R', True):
+				kickTests = [(0, 0), (-2, 0), (+1, 0), (-2,+1), (+1,-1)]
+			case ('2', 'L', True):
+				kickTests = [(0, 0), (+2, 0), (-1, 0), (+2,+1), (-1,-1)]
+			case ('L', '2', True):
+				kickTests = [(0, 0), (+1, 0), (-2, 0), (+1,+2), (-2,-1)]
+			case ('L', '0', True):
+				kickTests = [(0, 0), (-2, 0), (+1, 0), (-2,+1), (+1,-2)]
+			case ('0', 'L', True):
+				kickTests = [(0, 0), (+2, 0), (-1, 0), (-1,+2), (+2,-1)]
+			case _:
+				print(oldRot, newRot, pieceType=="I")
 
-		return o
-	
+		
+		# iterate through each available test
+		for xKick, yKick in kickTests:
+
+			# if test does not collide, return
+			if not self.checkActivePieceCollision(self.anchorX+xKick, self.anchorY+yKick, self.typeAndRotToMeta[pieceType][newRot]):
+				return (xKick, yKick)
+		return (69, 420) # No tests work, abort rotation
+
+	def rotateActivePiece(self, dir :int):
+		pieceType, pieceRot = self.metaIdToTypeAndRot[self.activePiece]
+
+		assert dir in [ 1, -1], "Variable 'dir' must be of type 'int' with value '1' or '-1'"
+		match (pieceRot, dir):
+			case ('0',  1):
+				newRot = 'R'
+			case ('R',  1):
+				newRot = '2'
+			case ('R', -1):
+				newRot = '0'
+			case ('2',  1):
+				newRot = 'L'
+			case ('2', -1):
+				newRot = 'R'
+			case ('L',  1):
+				newRot = '0'
+			case ('L', -1):
+				newRot = '2'
+			case ('0', -1):
+				newRot = 'L'
+		
+		xKick, yKick = self.getNeededKick(pieceRot, newRot, pieceType)
+		if xKick == 69: # No rotation test succeeded, abort
+			return
+		self.anchorX += xKick; self.anchorY += yKick
+		self.activePiece = self.typeAndRotToMeta[pieceType][newRot]
+
+
 	def holdActivePiece(self):
 		# if not self.canHoldPiece:
 		# 	return
@@ -254,12 +284,12 @@ class Game:
 		
 		self.canHoldPiece = False
 		if self.heldPiece == 0:
-			self.heldPiece = self.typeToMeta[self.metaIdToTypeAndRot[self.activePiece][0]]['0']
+			self.heldPiece = self.typeAndRotToMeta[self.metaIdToTypeAndRot[self.activePiece][0]]['0']
 			self.activePiece = self.nextList.pop(0)
-			self.nextList.append(self.typeToMeta[self.typeList[random.randint(0, 6)]]['0'])
+			self.nextList.append(self.typeAndRotToMeta[self.typeList[random.randint(0, 6)]]['0'])
 			return
 		
-		temp = self.typeToMeta[self.metaIdToTypeAndRot[self.activePiece][0]]['0']
+		temp = self.typeAndRotToMeta[self.metaIdToTypeAndRot[self.activePiece][0]]['0']
 		self.activePiece = self.heldPiece
 		self.heldPiece = temp
 		
@@ -269,8 +299,8 @@ class Game:
 		self.gameBoard :list[list[str]] = [['-' for x in range(10)] for x in range(20)]
 		
 		self.activePiece = 3840
-		# self.activePiece :int = self.typeToMeta[self.typeList[random.randint(0, 6)]]['0']
-		self.nextList = [self.typeToMeta[self.typeList[random.randint(0, 6)]]['0'], self.typeToMeta[self.typeList[random.randint(0, 6)]]['0'], self.typeToMeta[self.typeList[random.randint(0, 6)]]['0']]
+		# self.activePiece :int = self.typeAndRotToMeta[self.typeList[random.randint(0, 6)]]['0']
+		self.nextList = [self.typeAndRotToMeta[self.typeList[random.randint(0, 6)]]['0'], self.typeAndRotToMeta[self.typeList[random.randint(0, 6)]]['0'], self.typeAndRotToMeta[self.typeList[random.randint(0, 6)]]['0']]
 		self.canHoldPiece = True
 		self.heldPiece = 0
 		self.anchorX :int= 3
@@ -353,8 +383,7 @@ class Display:
 					40, 40)																						 # Image Width, Height :int
 				)
 
-		...
-				
+
 	def gridToCoord(self, x, y) -> tuple[int, int]:
 		x *= 40
 		y *= 40
@@ -380,6 +409,8 @@ class Display:
 		run = True
 		self.game = Game()
 		self.pseudoFrameCount = 0
+		self.pseudoFrameCountDelta = 0
+		self.pseudoFrameCountLastTrigger = 0
 		
 		self.screen = pg.display.set_mode((1200, 900))
 		pg.display.set_caption("Tetris")
@@ -389,13 +420,19 @@ class Display:
 		fTimeElapsed = 0
 		iFrameCount = -1
 
+		self.pause = False
+
 
 
 		while run:
 			iFrameCount += 1
 			dt = clock.tick_busy_loop()/1000
 			fTimeElapsed += dt
-			self.pseudoFrameCount = (fTimeElapsed*self.pseudoFramesPerSecond)//1
+			self.pseudoFrameCount = self.pseudoFrameCountDelta + (fTimeElapsed*self.pseudoFramesPerSecond)//1
+
+			self.drawWindow()
+			pg.display.update()
+
 
 			keys = pg.key.get_pressed()
 			buttons = pg.mouse.get_pressed()
@@ -407,6 +444,8 @@ class Display:
 				if e.type == pg.KEYDOWN:
 					if e.key == pg.K_c:
 						self.game.holdActivePiece()
+					if e.key == pg.K_ESCAPE:
+						self.pause = not self.pause
 					if e.key == pg.K_p:
 						g = self.game
 						for piece in self.game.nextList:
@@ -416,22 +455,26 @@ class Display:
 				self.game.moveActivePieceHorz(-1)
 			if self.checkIfKeyShouldExec(pg.K_d, keys):
 				self.game.moveActivePieceHorz( 1)
-			if self.checkIfKeyShouldExec(pg.K_s, keys):
-				self.game.stepActivePieceDown()
 			if self.checkIfKeyShouldExec(pg.K_z, keys):
 				self.game.rotateActivePiece(-1)
 			if self.checkIfKeyShouldExec(pg.K_w, keys):
 				self.game.rotateActivePiece( 1)
 
-			if self.pseudoFrameCount % 29 == 0:
+			if self.checkIfKeyShouldExec(pg.K_s, keys):
 				self.game.stepActivePieceDown()
+				self.pseudoFrameCountDelta -= self.pseudoFrameCount % 29 + 1
 
 			if SignalEdge.getRisingEdge(keys[pg.K_SPACE], pg.K_SPACE):
 				self.game.dropActivePieceDown()
+				self.pseudoFrameCountDelta -= self.pseudoFrameCount % 29 + 1
 
+
+			if (self.pseudoFrameCount % 29) == 0 and self.pseudoFrameCount != self.pseudoFrameCountLastTrigger:
+				self.pseudoFrameCountLastTrigger = self.pseudoFrameCount
+				self.game.stepActivePieceDown()
 			
-			self.drawWindow()
-			pg.display.update()
+			# self.game.dropActivePieceDown()
+
 
 
 
