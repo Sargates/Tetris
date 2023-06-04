@@ -8,8 +8,6 @@ import random, pygame as pg, math
 # Requires Pygame package, setup.py included
 # 
 
-
-
 pg.init()
 class Game:
 	#	    0      90    180    270
@@ -29,6 +27,14 @@ class Game:
 	of those 4 bits. Things like color can be deduced by using a hashmap. The x and y components for the anchor of
 	the active piece describe the top left of the 4x4 grid of cells. Hopefully that makes sense.
 	"""
+	
+	themeSong = pg.mixer.Sound("./assets/mainTheme.ogg")
+	themeSong.set_volume(0.05)
+	popSound = pg.mixer.Sound("./assets/pop.ogg")
+	popSound.set_volume(0.02)
+	gameoverMusic = pg.mixer.Sound("./assets/gameover.ogg")
+	gameoverMusic.set_volume(0.03)
+
 	
 	typeAndRotToMeta = {
 		"I" : {
@@ -179,6 +185,7 @@ class Game:
 
 		self.totalLines += linesThisPiece
 		self.activePiece = self.nextList.pop(0)
+		self.popSound.play()
 		self.addNextPiece()
 		self.canHoldPiece = True
 		self.anchorX = 3
@@ -186,10 +193,12 @@ class Game:
 
 		if self.checkPieceCollision(self.anchorX, self.anchorY, self.activePiece):
 			self.state = self.States.gameover
+
+			self.themeSong.stop()
+			self.gameoverMusic.play()
 			print(self)
 			self.countdownTimer = 4.0
 			
-
 	def updateDisplayedBoard(self):
 		outBoard = deepcopy(self.gameBoard)
 		minoType, pieceRot = self.metaIdToTypeAndRot[self.activePiece]
@@ -328,22 +337,16 @@ class Game:
 		self.anchorY :int= -1
 		self.totalLines = 0
 		self.score = 0
+		
 		self.state = self.States.countdown
 		self.countdownTimer = 3.0
 	
 	def __str__(self):
 		o = ""
-		o += f"Total Lines: {self.totalLines}\n"
+		o += f"Total Lines: 	{self.totalLines}\n"
 		o += f"Level: 		{self.totalLines//10}\n"
 		o += f"Score:		{self.score}"
 		return o
-
-
-
-
-
-
-
 
 class Display:
 	levelFont = pg.font.SysFont('calibri', 62)
@@ -356,6 +359,8 @@ class Display:
 	screen = pg.display.set_mode((1200, 900))
 	pg.display.set_caption("Tetris")
 	clock = pg.time.Clock()
+
+
 
 
 	background = pg.image.load('./assets/board.png')
@@ -569,6 +574,7 @@ class Display:
 								self.game.countdownTimer = 3.0
 							case self.game.States.playing:
 								self.game.state = self.game.States.menu
+								self.game.themeSong.stop()
 
 					if e.key == pg.K_p: # debug key
 						print(self.game.droughtCounter)
@@ -582,7 +588,6 @@ class Display:
 
 					keys = pg.key.get_pressed()
 					buttons = pg.mouse.get_pressed()
-
 
 
 					if self.checkIfKeyShouldExec(pg.K_a, keys):
@@ -602,7 +607,6 @@ class Display:
 						self.game.dropActivePieceDown()
 						self.pseudoFrameCountDelta -= self.pseudoFrameCount % self.pseudoFramesByLevel(self.game.totalLines//10) + 1
 
-
 					if (self.pseudoFrameCount % self.pseudoFramesByLevel(self.game.totalLines//10)) == 0 and self.pseudoFrameCount != self.pseudoFrameCountLastTrigger:
 						self.pseudoFrameCountLastTrigger = self.pseudoFrameCount
 						self.game.stepActivePieceDown()
@@ -614,11 +618,14 @@ class Display:
 					self.game.countdownTimer -= dt
 					if self.game.countdownTimer < 0:
 						self.game.state = self.game.States.playing
+						self.game.themeSong.play(loops=-1)
+
 						
 
 				case self.game.States.gameover:
 					self.game.countdownTimer -= dt
 					if self.game.countdownTimer < 0:
+
 						self.game = Game()
 						self.game.state = self.game.States.countdown
 
