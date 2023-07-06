@@ -1,7 +1,10 @@
 from copy import deepcopy
 from enum import Enum, auto
-from signaledge import SignalEdge
-import random, pygame as pg, math
+from utilities.repeatedPrint import RepeatedPrint as RP
+from utilities.signaledge import SignalEdge
+import random, pygame as pg, math, datetime
+
+RP.formattedRP()
 
 # 
 # Tetris, by Nick Gates, 5/31/23
@@ -28,56 +31,56 @@ class Game:
 	the active piece describe the top left of the 4x4 grid of cells. Hopefully that makes sense.
 	"""
 	
-	themeSong = pg.mixer.Sound("./assets/mainTheme.ogg")
-	themeSong.set_volume(0.05)
-	popSound = pg.mixer.Sound("./assets/pop.ogg")
-	popSound.set_volume(0.02)
-	gameoverMusic = pg.mixer.Sound("./assets/gameover.ogg")
-	gameoverMusic.set_volume(0.03)
+	# tests if audio devices are attached to machine
+	canPlayMusic = True
+	try:
+		pg.mixer.init()
+	except:
+		canPlayMusic = False
+	if canPlayMusic:
+		themeSong = pg.mixer.Sound("./assets/mainTheme.ogg")
+		themeSong.set_volume(0.05)
+		popSound = pg.mixer.Sound("./assets/pop.ogg")
+		popSound.set_volume(0.02)
+		gameoverMusic = pg.mixer.Sound("./assets/gameover.ogg")
+		gameoverMusic.set_volume(0.03)
 
-	
 	typeAndRotToMeta = {
 		"I" : {
 			"0": 3840,
 			"R": 8738,
 			"2": 240,
 			"L": 17476,
-
 		},
 		"J" : {
 			"0": 2272,
 			"R": 1604,
 			"2": 226,
 			"L": 1100,
-
 		},
 		"L" : {
 			"0": 736,
 			"R": 1094,
 			"2": 232,
 			"L": 3140,
-
 		},
 		"O" : {
 			"0": 1632,
 			"R": 1632,
 			"2": 1632,
 			"L": 1632,
-
 		},
 		"S" : {
 			"0": 1728,
 			"R": 1122,
 			"2": 108,
 			"L": 2244,
-
 		},
 		"T" : {
 			"0": 1248,
 			"R": 1124,
 			"2": 228,
 			"L": 1220,
-
 		},
 		"Z" : {
 			"0": 3168,
@@ -185,7 +188,7 @@ class Game:
 
 		self.totalLines += linesThisPiece
 		self.activePiece = self.nextList.pop(0)
-		self.popSound.play()
+		if self.canPlayMusic: self.popSound.play()
 		self.addNextPiece()
 		self.canHoldPiece = True
 		self.anchorX = 3
@@ -194,8 +197,7 @@ class Game:
 		if self.checkPieceCollision(self.anchorX, self.anchorY, self.activePiece):
 			self.state = self.States.gameover
 
-			self.themeSong.stop()
-			self.gameoverMusic.play()
+			if self.canPlayMusic: self.themeSong.stop(); self.gameoverMusic.play()
 			print(self)
 			self.countdownTimer = 4.0
 			
@@ -281,7 +283,7 @@ class Game:
 			case ('0', -1): newRot = 'L'
 		
 		xKick, yKick = self.getNeededKick(pieceRot, newRot, pieceType)
-		if xKick == 69: # No rotation test succeeded, abort
+		if (xKick, yKick) == (69, 420): # No rotation test succeeded, abort
 			return
 		self.anchorX += xKick; self.anchorY += yKick
 		self.activePiece = self.typeAndRotToMeta[pieceType][newRot]
@@ -352,17 +354,26 @@ class Display:
 	levelFont = pg.font.SysFont('calibri', 62)
 	scoreFont = pg.font.SysFont('calibri', 80)
 	pseudoFramesPerSecond = 60
+	maxFrameHistory = 20
 
-	# things for key "listener"
-	keyFrameCountCache = {}
+	holdSurfaceTemplate = pg.Surface((230, 270))
+	pg.draw.rect(holdSurfaceTemplate, (255, 255, 255), (80, 50, 230, 270), 10, 58)
+	pg.draw.line(holdSurfaceTemplate, (255, 255, 255), (80, 124), (310, 124), 8)
+	# nextListSurfaceTemplate = pg.Surface()
+	# shadowSurfaceTemplate = pg.Surface()
+	# levelSurfaceTemplate = pg.Surface()
+	# scoreSurfaceTemplate = pg.Surface()
+	# boardSurfaceTemplate = pg.Surface()
+
+
+
 
 	screen = pg.display.set_mode((1200, 900))
 	pg.display.set_caption("Tetris")
 	clock = pg.time.Clock()
 
-
-
-
+	# things for key "listener"
+	keyFrameCountCache = {}
 	background = pg.image.load('./assets/board.png')
 	typeToImage = {
 		'I': pg.image.load('./assets/i.png'),
@@ -404,18 +415,22 @@ class Display:
 	}
 
 	def checkIfKeyShouldExec(self, keycode :int, keys :list[int]):
-		# method that's meant to add 'delay before spam' functionality to the holding of keys
+		"""method that's meant to add 'delay before spam' functionality to the holding of keys.
+		multiplier is for using something like pseudoframes, so if there's 60 Pfps, 
+		the game running at 5fps will feel the same as the game running at 60fps (from a realtime standpoint)"""
+
 
 		if not keys[keycode]  or  (not keycode in self.keyFrameCountCache):
 			self.keyFrameCountCache[keycode] = -1
 			return False
+
 		
 		self.keyFrameCountCache[keycode] += 1
 
 		v = self.keyFrameCountCache[keycode]
 		spamFrequency = 4		# in frames
 		delayBeforeSpam = 4 	# in frames
-		return ((v < 1) or ((v//spamFrequency) > delayBeforeSpam and (v%spamFrequency)==0))
+		return ((v < 1) or ((v//spamFrequency) > delayBeforeSpam and (v%spamFrequency)//1==0))
 	
 	def drawShadow_Playing(self):
 		shadowAnchorY = self.game.calcShadowPos()
@@ -469,6 +484,14 @@ class Display:
 		y += 50
 		tup = (x, y)
 		return tup
+	
+	def drawFrameRate(self):
+		fps = self.fpsSum / self.maxFrameHistory
+
+		font = pg.font.SysFont("Arial", 36)  # Create a font object
+		fps_text = font.render(f"FPS: {fps:.2f}", True, pg.Color("white"))  # Render the FPS text
+
+		self.screen.blit(fps_text, (10, 10))  # Draw the FPS text on the screen at position (10, 10)
 
 	def drawWindow(self):
 		w, h = (self.screen.get_width(), self.screen.get_height())
@@ -482,6 +505,8 @@ class Display:
 				self.drawLevel_Playing()
 				self.drawScore_Playing()
 				self.drawBoard_Playing()
+
+				# pg.draw.rect(self.screen, (255,   0,   0), (80, 50, 230, 270), 10, 58)
 
 			case self.game.States.menu:
 				menuText = Display.levelFont.render("Paused, Esc to unpause", 1, (255, 255, 255))
@@ -497,6 +522,12 @@ class Display:
 				restartingText = Display.levelFont.render("Restarting...", 1, (255, 255, 255))
 				self.screen.blit(gameOverText, (((w - gameOverText.get_width())/2 , (h - gameOverText.get_height()-40)/2)))
 				self.screen.blit(restartingText, (((w - restartingText.get_width())/2 , (h + gameOverText.get_height()+40-restartingText.get_height())/2)))
+
+		if len(self.fpsHistory) > self.maxFrameHistory:
+			subtracted = self.fpsHistory.pop(-self.maxFrameHistory-1)
+			self.fpsSum -= subtracted
+		if self.debug:
+			self.drawFrameRate()
 
 
 	def pseudoFramesByLevel(self, level):
@@ -545,11 +576,15 @@ class Display:
 		self.pseudoFrameCount = 0
 		self.pseudoFrameCountDelta = 0
 		self.pseudoFrameCountLastTrigger = 0
-				
+		self.fpsHistory = []
+		self.fpsSum = 0.0
+
 		fTimeElapsed = 0
 		iFrameCount = -1
 
 		self.pause = False
+		self.debug = True
+
 
 
 
@@ -558,6 +593,10 @@ class Display:
 			dt = self.clock.tick_busy_loop()/1000
 			fTimeElapsed += dt
 			self.pseudoFrameCount = self.pseudoFrameCountDelta + (fTimeElapsed*self.pseudoFramesPerSecond)//1
+			if dt == 0.0: dt = 0.0001
+			fps = round(1/min(1, dt), 10)
+			self.fpsHistory.append(fps)
+			self.fpsSum += fps
 
 			self.drawWindow()
 			pg.display.update()
@@ -574,10 +613,12 @@ class Display:
 								self.game.countdownTimer = 3.0
 							case self.game.States.playing:
 								self.game.state = self.game.States.menu
-								self.game.themeSong.stop()
+								if self.game.canPlayMusic:self.game.themeSong.stop()
 
 					if e.key == pg.K_p: # debug key
-						print(self.game.droughtCounter)
+						self.debug = not self.debug
+					if e.key == pg.K_F12:
+						pg.image.save(self.screen, f"./screenshots/{datetime.datetime.now()}.jpg")
 					if self.game.state != self.game.States.playing:
 						continue
 					if e.key == pg.K_c:
@@ -590,16 +631,16 @@ class Display:
 					buttons = pg.mouse.get_pressed()
 
 
-					if self.checkIfKeyShouldExec(pg.K_a, keys):
+					if self.checkIfKeyShouldExec(pg.K_LEFT, keys):
 						self.game.moveActivePieceHorz(-1)
-					if self.checkIfKeyShouldExec(pg.K_d, keys):
+					if self.checkIfKeyShouldExec(pg.K_RIGHT, keys):
 						self.game.moveActivePieceHorz( 1)
 					if self.checkIfKeyShouldExec(pg.K_z, keys):
 						self.game.rotateActivePiece(-1)
-					if self.checkIfKeyShouldExec(pg.K_w, keys):
+					if self.checkIfKeyShouldExec(pg.K_UP, keys):
 						self.game.rotateActivePiece( 1)
 
-					if self.checkIfKeyShouldExec(pg.K_s, keys):
+					if self.checkIfKeyShouldExec(pg.K_DOWN, keys):
 						self.game.stepActivePieceDown()
 						self.pseudoFrameCountDelta -= self.pseudoFrameCount % self.pseudoFramesByLevel(self.game.totalLines//10) + 1
 
@@ -618,9 +659,8 @@ class Display:
 					self.game.countdownTimer -= dt
 					if self.game.countdownTimer < 0:
 						self.game.state = self.game.States.playing
-						self.game.themeSong.play(loops=-1)
-
-						
+						if self.game.canPlayMusic: self.game.themeSong.play(loops=-1)
+												
 
 				case self.game.States.gameover:
 					self.game.countdownTimer -= dt

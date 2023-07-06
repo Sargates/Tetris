@@ -4,10 +4,12 @@ Just a little Tetris project I whipped up over a day or two
 Requires Pygame module for Python, included setup.py
 https://www.pygame.org/
 
+LEFT, RIGHT, UP, DOWN refer to the arrow keys
+
 Controls:
-A/D for left/right movement of the active piece,
-W/Z for clockwise/counter-clockwise rotation
-S to step the active piece down one cell
+LEFT/RIGHT for left/right movement of the active piece,
+UP/Z for clockwise/counter-clockwise rotation
+DOWN to step the active piece down one cell
 C to hold active piece
 SPACE to drop piece to bottom
 ESC for pause
