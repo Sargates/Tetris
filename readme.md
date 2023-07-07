@@ -1,7 +1,7 @@
 # Tetris
 Just a little Tetris project I whipped up over a day or two
 
-Requires Pygame module for Python, included setup.py
+Requires Pygame module for Python
 https://www.pygame.org/
 
 LEFT, RIGHT, UP, DOWN refer to the arrow keys
