@@ -1,8 +1,8 @@
 from copy import deepcopy
 from enum import Enum, auto
-from utilities.repeatedPrint import RepeatedPrint as RP
-from utilities.signaledge import SignalEdge
-import random, pygame as pg, math, datetime
+from utilities.signaledge import SignalEdge; from utilities.repeatedPrint import RepeatedPrint as RP
+import random, pygame as pg, math, datetime, json, pprint
+from pygame import Vector2
 
 RP.formattedRP()
 
@@ -309,6 +309,7 @@ class Game:
 		self.anchorY = -1
 		
 		self.canHoldPiece = False
+		
 		if self.heldPiece == 0:
 			self.heldPiece = self.typeAndRotToMeta[self.metaIdToTypeAndRot[self.activePiece][0]]['0']
 			self.activePiece = self.nextList.pop(0)
@@ -350,74 +351,26 @@ class Game:
 		o += f"Score:		{self.score}"
 		return o
 
+
 class Display:
-	levelFont = pg.font.SysFont('calibri', 62)
-	scoreFont = pg.font.SysFont('calibri', 80)
 	pseudoFramesPerSecond = 60
-	maxFrameHistory = 20
+	maxFrameHistory = 5
 
-	holdSurfaceTemplate = pg.Surface((230, 270))
-	pg.draw.rect(holdSurfaceTemplate, (255, 255, 255), (80, 50, 230, 270), 10, 58)
-	pg.draw.line(holdSurfaceTemplate, (255, 255, 255), (80, 124), (310, 124), 8)
-	# nextListSurfaceTemplate = pg.Surface()
-	# shadowSurfaceTemplate = pg.Surface()
-	# levelSurfaceTemplate = pg.Surface()
-	# scoreSurfaceTemplate = pg.Surface()
-	# boardSurfaceTemplate = pg.Surface()
-
-
-
-
-	screen = pg.display.set_mode((1200, 900))
-	pg.display.set_caption("Tetris")
-	clock = pg.time.Clock()
+	game :Game
+	pseudoFrameCount :int
+	pseudoFrameCountDelta :float
+	pseudoFrameCountLastTrigger :int
+	fpsHistory :list
+	fpsSum :int
+	pause :bool
+	debug :bool
 
 	# things for key "listener"
 	keyFrameCountCache = {}
 	background = pg.image.load('./assets/board.png')
-	typeToImage = {
-		'I': pg.image.load('./assets/i.png'),
-		'J': pg.image.load('./assets/j.png'),
-		'L': pg.image.load('./assets/l.png'),
-		'S': pg.image.load('./assets/s.png'),
-		'Z': pg.image.load('./assets/z.png'),
-		'O': pg.image.load('./assets/o.png'),
-		'T': pg.image.load('./assets/t.png'),
-	}
 
-	typeToShadowImage = {}
-
-	blackSurface = pg.Surface((screen.get_width(), screen.get_height()))
-	blackSurface.fill((0, 0, 0))
-
-	for k, v in typeToImage.items():
-		shadowTexture = pg.Surface(pg.Vector2(40, 40), pg.SRCALPHA, 32)
-
-		skew = 1
-		swatch = v.get_at((20, 20))
-		shadowColor = pg.Color([x*y for x, y in zip(swatch, [skew, skew, skew])])
-		
-		pg.draw.polygon(shadowTexture, shadowColor, [pg.Vector2( 1,  1), pg.Vector2( 3,  3), pg.Vector2(37,  3), pg.Vector2(39,  1)])
-		pg.draw.polygon(shadowTexture, shadowColor, [pg.Vector2( 1,  1), pg.Vector2( 3,  3), pg.Vector2( 3, 37), pg.Vector2( 1, 39)])
-		pg.draw.polygon(shadowTexture, shadowColor, [pg.Vector2(39,  1), pg.Vector2(37,  3), pg.Vector2(37, 37), pg.Vector2(39, 39)])
-		pg.draw.polygon(shadowTexture, shadowColor, [pg.Vector2(39, 39), pg.Vector2(37, 37), pg.Vector2( 3, 37), pg.Vector2( 1, 39)])
-
-		typeToShadowImage[k] = shadowTexture
-
-	nextPositions = {
-		'I': (-40,   0),
-		'J': (-20, -20),
-		'L': (-20, -20),
-		'S': (-20, -20),
-		'Z': (-20, -20),
-		'O': (-40, -20),
-		'T': (-20, -20),
-	}
 
 	def checkIfKeyShouldExec(self, keycode :int, keys :list[int]):
-		"""method that's meant to add 'delay before spam' functionality to the holding of keys.
-		multiplier is for using something like pseudoframes, so if there's 60 Pfps, 
-		the game running at 5fps will feel the same as the game running at 60fps (from a realtime standpoint)"""
 
 
 		if not keys[keycode]  or  (not keycode in self.keyFrameCountCache):
@@ -432,50 +385,70 @@ class Display:
 		delayBeforeSpam = 4 	# in frames
 		return ((v < 1) or ((v//spamFrequency) > delayBeforeSpam and (v%spamFrequency)//1==0))
 	
-	def drawShadow_Playing(self):
-		shadowAnchorY = self.game.calcShadowPos()
 
-		pieceType, pieceRot = self.game.metaIdToTypeAndRot[self.game.activePiece]
-		for cellX, cellY in list(map(lambda x: ((15-x)%4, (15-x)//4), self.game.metaIdToActiveBits[self.game.activePiece])):
-			x, y = self.gridToCoord(self.game.anchorX+cellX, shadowAnchorY+cellY)
-			self.screen.blit(self.typeToShadowImage[pieceType], (x, y, 40, 40))
+	def drawLevel(self, game :Game):
+		surface = self.levelSurfaceTemplate.copy()
+		levelText = self.levelFont.render("LEVEL: "+ str(game.totalLines//10), 1, (255, 255, 255))
+		surface.blit(levelText, self.levelTextPos - Vector2(levelText.get_rect().size)/2)
+		self.screen.blit(surface, self.levelBoxPos)
+		del surface
 
-	def drawLevel_Playing(self):
-		levelText = Display.levelFont.render("LEVEL: "+ str(self.game.totalLines//10), 1, (255, 255, 255))
-		self.screen.blit(levelText, (195 - levelText.get_width()/2 , 417 - levelText.get_height()/2))
+	def drawScore(self, game :Game):
+		surface = self.scoreSurfaceTemplate.copy()
+		scoreText = self.scoreFont.render(str(game.score), 1, (255, 255, 255))
+		surface.blit(scoreText, self.scoreTextPos - Vector2(scoreText.get_rect().size)/2)
+		self.screen.blit(surface, self.scoreBoxPos)
+		del surface
 
-	def drawScore_Playing(self):
-		scoreText = Display.scoreFont.render(str(self.game.score), 1, (255, 255, 255))
-		self.screen.blit(scoreText, (195 - scoreText.get_width()/2 , 656 - scoreText.get_height()/2))
-
-	def drawHold_Playing(self):
-		if self.game.heldPiece != 0:
-			for x, y in list(map(lambda x: ((15-x)%4, (15-x)//4), self.game.metaIdToActiveBits[self.game.heldPiece])):
-				self.screen.blit(
-					self.typeToImage[self.game.metaIdToTypeAndRot[self.game.heldPiece][0]], (					 # Image 	:pygame.Image
-					int(155+(x*40)+self.nextPositions[self.game.metaIdToTypeAndRot[self.game.heldPiece][0]][0]), # X coord 	:int
-					int(161+(y*40)+self.nextPositions[self.game.metaIdToTypeAndRot[self.game.heldPiece][0]][1]), # Y coord	:int
-					40, 40) 																					 # Image Width, Height :int
+	def drawHold(self, game :Game):
+		surface = self.holdSurfaceTemplate.copy()
+		if game.heldPiece != 0:
+			for x, y in list(map(lambda x: ((15-x)%4, (15-x)//4), game.metaIdToActiveBits[game.heldPiece])):
+				offset = self.nextlistPieceOffsets[game.metaIdToTypeAndRot[game.heldPiece][0]]
+				boardVector = Vector2(x, y)
+				position = self.holdPiecePos+boardVector*self.minoSize-offset
+				surface.blit(
+					self.typeToImage[game.metaIdToTypeAndRot[game.heldPiece][0]], (	# Image 	:pygame.Image
+					position,
+					Vector2(self.minoSize, self.minoSize))
 				)
+		self.screen.blit(surface, self.holdBoxPos)
+		del surface
 
-	def drawNextList_Playing(self):
-		for i, metaID in enumerate(self.game.nextList):
-			for x, y in list(map(lambda x: ((15-x)%4, (15-x)//4), self.game.metaIdToActiveBits[metaID])):
-				self.screen.blit(
-					self.typeToImage[self.game.metaIdToTypeAndRot[metaID][0]], (								 # Image 	:pygame.Image
-					int(960 + (x*40)+self.nextPositions[self.game.metaIdToTypeAndRot[metaID][0]][0]), 			 # X coord 	:int
-					int(245 + (y*40)+(165*i)+self.nextPositions[self.game.metaIdToTypeAndRot[metaID][0]][1]), 	 # Y coord	:int
-					40, 40)																						 # Image Width, Height :int
+	def drawNextList(self, game :Game):
+		surface = self.nextlistSurfaceTemplate.copy()
+		for i, metaID in enumerate(game.nextList):
+			for x, y in list(map(lambda x: ((15-x)%4, (15-x)//4), game.metaIdToActiveBits[metaID])):
+				offsetX, offsetY = self.nextlistPieceOffsets[game.metaIdToTypeAndRot[metaID][0]]
+				xPos = (self.nextlistPiecePos[0])+(x*self.minoSize)-(offsetX)
+				yPos = (self.nextlistPiecePos[1])+(y*self.minoSize)-(offsetY)+((i-1)*self.nextlistIOffset)
+				surface.blit(
+					self.typeToImage[game.metaIdToTypeAndRot[metaID][0]], (			# Image 	:pygame.Image
+					xPos,														 	# X coord 	:int
+					yPos,														 	# Y coord	:int
+					self.minoSize, self.minoSize)									# Image Width, Height :int
 				)
+		self.screen.blit(surface, self.nextlistBoxPos)
+		del surface
 
-	def drawBoard_Playing(self):
-		board = self.game.updateDisplayedBoard()
+
+	def drawBoard(self, game :Game):
+		board = game.updateDisplayedBoard()
 		for j in range(len(board)):
 			for i in range(len(board[j])):
 				if board[j][i] != '-':
 					tup = self.gridToCoord(i, j)
 					image = self.typeToImage[board[j][i].upper()]
 					self.screen.blit(image, (tup[0], tup[1], 40, 40))
+
+	def drawShadow(self, game :Game):
+		shadowAnchorY = game.calcShadowPos()
+
+		pieceType, pieceRot = game.metaIdToTypeAndRot[game.activePiece]
+		for cellX, cellY in list(map(lambda x: ((15-x)%4, (15-x)//4), game.metaIdToActiveBits[game.activePiece])):
+			x, y = self.gridToCoord(game.anchorX+cellX, shadowAnchorY+cellY)
+			self.screen.blit(self.typeToShadowImage[pieceType], (x, y, 40, 40))
+
 
 	def gridToCoord(self, x, y) -> tuple[int, int]:
 		x *= 40
@@ -484,42 +457,42 @@ class Display:
 		y += 50
 		tup = (x, y)
 		return tup
-	
+
 	def drawFrameRate(self):
 		fps = self.fpsSum / self.maxFrameHistory
 
-		font = pg.font.SysFont("Arial", 36)  # Create a font object
-		fps_text = font.render(f"FPS: {fps:.2f}", True, pg.Color("white"))  # Render the FPS text
+		font = pg.font.SysFont("Arial", 36)
+		fps_text = font.render(f"FPS: {fps:.2f}", 1, (255,255,255))
 
-		self.screen.blit(fps_text, (10, 10))  # Draw the FPS text on the screen at position (10, 10)
+		self.screen.blit(fps_text, (10, 10))
 
-	def drawWindow(self):
+	def drawWindow(self, game :Game):
 		w, h = (self.screen.get_width(), self.screen.get_height())
-		self.screen.blit(self.blackSurface, (0,0))
-		match self.game.state:
-			case self.game.States.playing:
-				self.screen.blit(self.background, (0,0))
-				self.drawHold_Playing()
-				self.drawNextList_Playing()
-				self.drawShadow_Playing()
-				self.drawLevel_Playing()
-				self.drawScore_Playing()
-				self.drawBoard_Playing()
+		self.screen.fill((0, 0, 0))
+		match game.state:
+			case game.States.playing:
+				# self.screen.blit(self.background, (0,0))
+				self.drawHold(game)
+				self.drawNextList(game)
+				self.drawShadow(game)
+				self.drawLevel(game)
+				self.drawScore(game)
+				self.drawBoard(game)
 
 				# pg.draw.rect(self.screen, (255,   0,   0), (80, 50, 230, 270), 10, 58)
 
-			case self.game.States.menu:
-				menuText = Display.levelFont.render("Paused, Esc to unpause", 1, (255, 255, 255))
+			case game.States.menu:
+				menuText = self.levelFont.render("Paused, Esc to unpause", 1, (255, 255, 255))
 				self.screen.blit(menuText, (((w - menuText.get_width())/2 , (h - menuText.get_height()-40)/2)))
 
 
-			case self.game.States.countdown:
-				countdownText = Display.levelFont.render(str(math.ceil(self.game.countdownTimer)), 1, (255, 255, 255))
+			case game.States.countdown:
+				countdownText = self.levelFont.render(str(math.ceil(game.countdownTimer)), 1, (255, 255, 255))
 				self.screen.blit(countdownText, (((w - countdownText.get_width())/2 , (h - countdownText.get_height()-40)/2)))
 
-			case self.game.States.gameover:
-				gameOverText = Display.scoreFont.render("Game Over", 1, (255, 255, 255))
-				restartingText = Display.levelFont.render("Restarting...", 1, (255, 255, 255))
+			case game.States.gameover:
+				gameOverText = self.scoreFont.render("Game Over", 1, (255, 255, 255))
+				restartingText = self.levelFont.render("Restarting...", 1, (255, 255, 255))
 				self.screen.blit(gameOverText, (((w - gameOverText.get_width())/2 , (h - gameOverText.get_height()-40)/2)))
 				self.screen.blit(restartingText, (((w - restartingText.get_width())/2 , (h + gameOverText.get_height()+40-restartingText.get_height())/2)))
 
@@ -566,39 +539,162 @@ class Display:
 			29:	1,
 		}
 		return speed[level]
+
+	def __init__(self, width, height) -> None:
+
+		self.screen = pg.display.set_mode((width, height))
+		pg.display.set_caption("Tetris")
+		self.clock = pg.time.Clock()
+
+		with open('./resolutions.json', 'r') as f:
+			self.resolutionPreset = json.load(f)[f'{width}x{height}']
+		pprint.pprint(self.resolutionPreset)
+
+		self.minoSize = self.resolutionPreset['playing']['generalPieceSize']
+		self.nextlistIOffset = self.resolutionPreset['playing']['nextlistIOffset']
+		self.nextlistPieceOffsets = {k: Vector2(self.minoSize*v[0], self.minoSize*v[1]) for k, v in self.resolutionPreset['playing']['nextlistPieceOffsets'].items()}
+
+		self.typeToImage = {
+			'I': pg.transform.scale(pg.image.load('./assets/i.png'), (self.minoSize, self.minoSize)),
+			'J': pg.transform.scale(pg.image.load('./assets/j.png'), (self.minoSize, self.minoSize)),
+			'L': pg.transform.scale(pg.image.load('./assets/l.png'), (self.minoSize, self.minoSize)),
+			'S': pg.transform.scale(pg.image.load('./assets/s.png'), (self.minoSize, self.minoSize)),
+			'Z': pg.transform.scale(pg.image.load('./assets/z.png'), (self.minoSize, self.minoSize)),
+			'O': pg.transform.scale(pg.image.load('./assets/o.png'), (self.minoSize, self.minoSize)),
+			'T': pg.transform.scale(pg.image.load('./assets/t.png'), (self.minoSize, self.minoSize)),
+		}
+
+		self.typeToShadowImage = {}
+		for k, v in self.typeToImage.items():
+			shadowTexture = pg.Surface(pg.Vector2(self.minoSize, self.minoSize), pg.SRCALPHA, 32)
+
+			skew = 1
+			swatch = v.get_at((self.minoSize//2, self.minoSize//2))
+			shadowColor = pg.Color([x*y for x, y in zip(swatch, [skew, skew, skew])])
+			
+			pg.draw.polygon(shadowTexture, shadowColor, [pg.Vector2( 1,  1), pg.Vector2( 3,  3), pg.Vector2(self.minoSize-3,  3), pg.Vector2(self.minoSize-1,  1)])
+			pg.draw.polygon(shadowTexture, shadowColor, [pg.Vector2( 1,  1), pg.Vector2( 3,  3), pg.Vector2( 3, self.minoSize-3), pg.Vector2( 1, self.minoSize-1)])
+			pg.draw.polygon(shadowTexture, shadowColor, [pg.Vector2(self.minoSize-1,  1), pg.Vector2(self.minoSize-3,  3), pg.Vector2(self.minoSize-3, self.minoSize-3), pg.Vector2(self.minoSize-1, self.minoSize-1)])
+			pg.draw.polygon(shadowTexture, shadowColor, [pg.Vector2(self.minoSize-1, self.minoSize-1), pg.Vector2(self.minoSize-3, self.minoSize-3), pg.Vector2( 3, self.minoSize-3), pg.Vector2( 1, self.minoSize-1)])
+
+			self.typeToShadowImage[k] = shadowTexture
 		
-	def __init__(self):
-		self.keyFrameCountCache = {}
+		# idek what this number is for it's just easier to estimate font sizes because I don't know how font pointing works
+
+		self.holdBoxPos = Vector2(self.resolutionPreset['setup']['holdBoxPos'])
+		holdBoxSize = Vector2(self.resolutionPreset['setup']['holdBoxSize'])
+		holdBoxBorderThickness = self.resolutionPreset['setup']['holdBoxBorderThickness']
+		holdBoxBorderRadius = self.resolutionPreset['setup']['holdBoxBorderRadius']
+		holdFontSize = self.resolutionPreset['setup']['holdFontSize']
+		holdLineSeparatorPos = [Vector2(x) for x in self.resolutionPreset['setup']['holdLineSeparatorPos']]
+		holdLineSeparatorThickness = self.resolutionPreset['setup']['holdLineSeparatorThickness']
+
+		self.holdSurfaceTemplate = pg.Surface(holdBoxSize)
+		pg.draw.rect(self.holdSurfaceTemplate, (255, 255, 255), (0, 0, *holdBoxSize), holdBoxBorderThickness, holdBoxBorderRadius)
+		pg.draw.line(self.holdSurfaceTemplate, (255, 255, 255), *holdLineSeparatorPos, 8)
+		holdFont = pg.font.SysFont('calibri', holdFontSize).render("HOLD", 1, (255, 255, 255))
+		self.holdSurfaceTemplate.blit(holdFont, (Vector2(holdBoxSize.x, holdLineSeparatorPos[0].y+holdLineSeparatorThickness/2)-Vector2(holdFont.get_rect().size))/2)
+		self.holdPiecePos = (holdBoxSize + Vector2(0, holdLineSeparatorPos[0].y+holdLineSeparatorThickness))/2 - Vector2(0, holdBoxBorderThickness)
+		# ^^^^ must be in local space for self.holdSurfaceTemplate
+		
+
+		self.nextlistBoxPos = Vector2(self.resolutionPreset['setup']['nextlistBoxPos'])
+		nextlistBoxSize = Vector2(self.resolutionPreset['setup']['nextlistBoxSize'])
+		nextlistBoxBorderThickness = self.resolutionPreset['setup']['nextlistBoxBorderThickness']
+		nextlistBoxBorderRadius = self.resolutionPreset['setup']['nextlistBoxBorderRadius']
+		nextlistFontSize = self.resolutionPreset['setup']['nextlistFontSize']
+		nextlistLineSeparatorPos = [Vector2(x) for x in self.resolutionPreset['setup']['nextlistLineSeparatorPos']]
+		nextlistLineSeparatorThickness = self.resolutionPreset['setup']['nextlistLineSeparatorThickness']
+
+		self.nextlistSurfaceTemplate = pg.Surface(nextlistBoxSize)
+		pg.draw.rect(self.nextlistSurfaceTemplate, (255, 255, 255), (0, 0, *nextlistBoxSize), nextlistBoxBorderThickness, nextlistBoxBorderRadius)
+		pg.draw.line(self.nextlistSurfaceTemplate, (255, 255, 255), *nextlistLineSeparatorPos, 8)
+		nextlistFont = pg.font.SysFont('calibri', nextlistFontSize).render("NEXT", 1, (255, 255, 255))
+		self.nextlistSurfaceTemplate.blit(nextlistFont, (Vector2(nextlistBoxSize.x, nextlistLineSeparatorPos[0].y+nextlistLineSeparatorThickness/2)-Vector2(nextlistFont.get_rect().size))/2)
+		self.nextlistPiecePos = (nextlistBoxSize + Vector2(0, nextlistLineSeparatorPos[0].y+nextlistLineSeparatorThickness-nextlistBoxBorderThickness))/2 - Vector2(0, nextlistBoxBorderThickness)
+		# ^^^^ must be in local space for self.holdSurfaceTemplate
+
+
+		self.levelBoxPos = Vector2(self.resolutionPreset['setup']['levelBoxPos'])
+		levelBoxSize = Vector2(self.resolutionPreset['setup']['levelBoxSize'])
+		levelBoxBorderThickness = self.resolutionPreset['setup']['levelBoxBorderThickness']
+		levelBoxBorderRadius = self.resolutionPreset['setup']['levelBoxBorderRadius']
+		levelFontSize = self.resolutionPreset['setup']['levelFontSize']
+		self.levelFont = pg.font.SysFont('calibri', levelFontSize)
+		self.levelSurfaceTemplate = pg.Surface(levelBoxSize)
+		pg.draw.rect(self.levelSurfaceTemplate, (255, 255, 255), (0, 0, *levelBoxSize), levelBoxBorderThickness, levelBoxBorderRadius)
+		self.levelTextPos = levelBoxSize/2
+
+
+		self.scoreBoxPos = Vector2(self.resolutionPreset['setup']['scoreBoxPos'])
+		scoreBoxSize = Vector2(self.resolutionPreset['setup']['scoreBoxSize'])
+		scoreBoxBorderThickness = self.resolutionPreset['setup']['scoreBoxBorderThickness']
+		scoreBoxBorderRadius = self.resolutionPreset['setup']['scoreBoxBorderRadius']
+		scoreFontSizePrimary = self.resolutionPreset['setup']['scoreFontSizePrimary']
+		scoreFontSizeSecondary = self.resolutionPreset['setup']['scoreFontSizeSecondary']
+		scoreLineSeparatorPos = [Vector2(x) for x in self.resolutionPreset['setup']['scoreLineSeparatorPos']]
+		scoreLineSeparatorThickness = self.resolutionPreset['setup']['scoreLineSeparatorThickness']
+		
+		self.scoreTextPos = (scoreBoxSize + Vector2(0, scoreLineSeparatorPos[0].y+scoreLineSeparatorThickness-scoreBoxBorderThickness))/2
+		# ^^^^ must be in local space for self.holdSurfaceTemplate
+
+
+		self.scoreSurfaceTemplate = pg.Surface(scoreBoxSize)
+		pg.draw.rect(self.scoreSurfaceTemplate, (255, 255, 255), (0, 0, *scoreBoxSize), scoreBoxBorderThickness, scoreBoxBorderRadius)
+		pg.draw.line(self.scoreSurfaceTemplate, (255, 255, 255), *scoreLineSeparatorPos, 8)
+		scoreFontPrimary = pg.font.SysFont('calibri', scoreFontSizePrimary).render("SCORE", 1, (255, 255, 255))
+		self.scoreSurfaceTemplate.blit(scoreFontPrimary, (Vector2(scoreBoxSize.x, scoreLineSeparatorPos[0].y+scoreLineSeparatorThickness/2)-Vector2(scoreFontPrimary.get_rect().size))/2)
+		
+		self.scoreFont = pg.font.SysFont('calibri', scoreFontSizeSecondary)
+
+
+
+		# self.shadowSurfaceTemplate = pg.Surface()
+		# self.boardSurfaceTemplate = pg.Surface()
+
+class Controller:
+	def startSinglePlayer():
+		disp = Display(1200, 900)
+		disp.keyFrameCountCache = {}
 
 		
 		run = True
-		self.game = Game()
-		self.pseudoFrameCount = 0
-		self.pseudoFrameCountDelta = 0
-		self.pseudoFrameCountLastTrigger = 0
-		self.fpsHistory = []
-		self.fpsSum = 0.0
+		game = Game()
+		disp.pseudoFrameCount = 0
+		disp.pseudoFrameCountDelta = 0
+		disp.pseudoFrameCountLastTrigger = 0
+		disp.fpsHistory = []
+		disp.fpsSum = 0.0
 
 		fTimeElapsed = 0
 		iFrameCount = -1
 
-		self.pause = False
-		self.debug = True
+		disp.pause = False
+		disp.debug = True
 
 
 
 
 		while run:
 			iFrameCount += 1
-			dt = self.clock.tick_busy_loop()/1000
+			dt = disp.clock.tick_busy_loop(60)/1000
 			fTimeElapsed += dt
-			self.pseudoFrameCount = self.pseudoFrameCountDelta + (fTimeElapsed*self.pseudoFramesPerSecond)//1
-			if dt == 0.0: dt = 0.0001
+			disp.pseudoFrameCount = disp.pseudoFrameCountDelta + (fTimeElapsed*disp.pseudoFramesPerSecond)//1
+			if dt == 0.0: dt = 0.001
+			# RP.formattedRP(f"""
+			# 	{disp.fpsHistory}
+			# 	{dt}
+			# """)
 			fps = round(1/min(1, dt), 10)
-			self.fpsHistory.append(fps)
-			self.fpsSum += fps
+			disp.fpsHistory.append(fps)
+			disp.fpsSum += fps
 
-			self.drawWindow()
+			RP.formattedRP(f"""
+				{fTimeElapsed}
+				
+			""")
+
+			disp.drawWindow(game)
 			pg.display.update()
 
 			for e in pg.event.get():
@@ -607,69 +703,70 @@ class Display:
 					quit()
 				if e.type == pg.KEYDOWN:
 					if e.key == pg.K_ESCAPE:
-						match self.game.state:
-							case self.game.States.menu:
-								self.game.state = self.game.States.countdown
-								self.game.countdownTimer = 3.0
-							case self.game.States.playing:
-								self.game.state = self.game.States.menu
-								if self.game.canPlayMusic:self.game.themeSong.stop()
+						match game.state:
+							case game.States.menu:
+								game.state = game.States.countdown
+								game.countdownTimer = 3.0
+							case game.States.playing:
+								game.state = game.States.menu
+								if game.canPlayMusic:game.themeSong.stop()
 
 					if e.key == pg.K_p: # debug key
-						self.debug = not self.debug
+						disp.debug = not disp.debug
 					if e.key == pg.K_F12:
-						pg.image.save(self.screen, f"./screenshots/{datetime.datetime.now()}.jpg")
-					if self.game.state != self.game.States.playing:
+						pg.image.save(disp.screen, f"./screenshots/{datetime.datetime.now()}.jpg")
+					if game.state != game.States.playing:
 						continue
 					if e.key == pg.K_c:
-						self.game.holdActivePiece()
+						game.holdActivePiece()
+						disp.pseudoFrameCountLastTrigger = disp.pseudoFrameCount
 
-			match self.game.state:
-				case self.game.States.playing:
+
+			match game.state:
+				case game.States.playing:
 
 					keys = pg.key.get_pressed()
 					buttons = pg.mouse.get_pressed()
 
 
-					if self.checkIfKeyShouldExec(pg.K_LEFT, keys):
-						self.game.moveActivePieceHorz(-1)
-					if self.checkIfKeyShouldExec(pg.K_RIGHT, keys):
-						self.game.moveActivePieceHorz( 1)
-					if self.checkIfKeyShouldExec(pg.K_z, keys):
-						self.game.rotateActivePiece(-1)
-					if self.checkIfKeyShouldExec(pg.K_UP, keys):
-						self.game.rotateActivePiece( 1)
+					if disp.checkIfKeyShouldExec(pg.K_LEFT, keys):
+						game.moveActivePieceHorz(-1)
+					if disp.checkIfKeyShouldExec(pg.K_RIGHT, keys):
+						game.moveActivePieceHorz( 1)
+					if disp.checkIfKeyShouldExec(pg.K_z, keys):
+						game.rotateActivePiece(-1)
+					if disp.checkIfKeyShouldExec(pg.K_UP, keys):
+						game.rotateActivePiece( 1)
 
-					if self.checkIfKeyShouldExec(pg.K_DOWN, keys):
-						self.game.stepActivePieceDown()
-						self.pseudoFrameCountDelta -= self.pseudoFrameCount % self.pseudoFramesByLevel(self.game.totalLines//10) + 1
+					if disp.checkIfKeyShouldExec(pg.K_DOWN, keys):
+						game.stepActivePieceDown()
+						disp.pseudoFrameCountDelta -= disp.pseudoFrameCount % disp.pseudoFramesByLevel(game.totalLines//10) + 1
 
 					if SignalEdge.getRisingEdge(keys[pg.K_SPACE], pg.K_SPACE):
-						self.game.dropActivePieceDown()
-						self.pseudoFrameCountDelta -= self.pseudoFrameCount % self.pseudoFramesByLevel(self.game.totalLines//10) + 1
+						game.dropActivePieceDown()
+						disp.pseudoFrameCountDelta -= disp.pseudoFrameCount % disp.pseudoFramesByLevel(game.totalLines//10) + 1
 
-					if (self.pseudoFrameCount % self.pseudoFramesByLevel(self.game.totalLines//10)) == 0 and self.pseudoFrameCount != self.pseudoFrameCountLastTrigger:
-						self.pseudoFrameCountLastTrigger = self.pseudoFrameCount
-						self.game.stepActivePieceDown()
+					if (disp.pseudoFrameCount % disp.pseudoFramesByLevel(game.totalLines//10)) == 0 and disp.pseudoFrameCount != disp.pseudoFrameCountLastTrigger:
+						disp.pseudoFrameCountLastTrigger = disp.pseudoFrameCount
+						game.stepActivePieceDown()
 
-				case self.game.States.menu:
+				case game.States.menu:
 					pass
 
-				case self.game.States.countdown:
-					self.game.countdownTimer -= dt
-					if self.game.countdownTimer < 0:
-						self.game.state = self.game.States.playing
-						if self.game.canPlayMusic: self.game.themeSong.play(loops=-1)
+				case game.States.countdown:
+					game.countdownTimer -= dt
+					if game.countdownTimer < 0:
+						game.state = game.States.playing
+						if game.canPlayMusic: game.themeSong.play(loops=-1)
 												
 
-				case self.game.States.gameover:
-					self.game.countdownTimer -= dt
-					if self.game.countdownTimer < 0:
+				case game.States.gameover:
+					game.countdownTimer -= dt
+					if game.countdownTimer < 0:
 
-						self.game = Game()
-						self.game.state = self.game.States.countdown
-
+						game = Game()
+						game.state = game.States.countdown
 
 
 if __name__ == "__main__":
-	Display()
+	Controller.startSinglePlayer()
