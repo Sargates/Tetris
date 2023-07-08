@@ -1,6 +1,6 @@
 {
 	"400x300": {
-		
+			
 	},
 	"720x540": {
 		
@@ -9,6 +9,75 @@
 		
 	},
 	"1200x900": {
+		"setup": {
+			"holdBoxPos": [80, 50],
+			"holdBoxSize": [230, 270],
+			"holdBoxBorderThickness": 10,
+			"holdBoxBorderRadius": 58,
+			"holdFontSize": 54,
+			"holdLineSeparatorPos": [[0, 78], [230, 78]],
+			"holdLineSeparatorThickness": 8,
+			"hold": null,
 
+			"nextlistBoxPos": [865, 110],
+			"nextlistBoxSize": [270, 620],
+			"nextlistBoxBorderThickness": 10,
+			"nextlistBoxBorderRadius": 36,
+			"nextlistFontSize": 58,
+			"nextlistLineSeparatorPos": [[0, 90], [270, 90]],
+			"nextlistLineSeparatorThickness": 8,
+			"nextlist": null,
+
+			"levelBoxPos": [58, 360],
+			"levelBoxSize": [274, 116],
+			"levelBoxBorderThickness": 10,
+			"levelBoxBorderRadius": 36,
+			"levelFontSize": 58,
+			"level": null,
+
+			"scoreBoxPos": [70, 530],
+			"scoreBoxSize": [250, 188],
+			"scoreBoxBorderThickness": 10,
+			"scoreBoxBorderRadius": 42,
+			"scoreFontSizePrimary": 62,
+			"scoreFontSizeSecondary": 82,
+			"scoreLineSeparatorPos": [[0, 70], [250, 70]],
+			"scoreLineSeparatorThickness": 8,
+			"score": null,
+
+			"shadow": null,
+
+			"boardPosX": 400,
+			"boardPosY": 50,
+			"board": null
+		},
+		"playing": {
+			"generalPieceSize": 40,
+			"hold": null,
+			"nextlistIOffset": 165,
+			"nextlistPieceOffsets": {
+				"I": [2.0, 1.5],
+				"J": [1.5, 2.0],
+				"L": [1.5, 2.0],
+				"S": [1.5, 2.0],
+				"Z": [1.5, 2.0],
+				"O": [2.0, 2.0],
+				"T": [1.5, 2.0]
+			},
+			"nextlist": null,
+			"level": null,
+			"score": null,
+			"shadow": null,
+			"board": null
+		},
+		"menu": {
+
+		},
+		"countdown": {
+
+		},
+		"gameover": {
+
+		}
 	}
 }
