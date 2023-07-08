@@ -356,7 +356,6 @@ class Display:
 	pseudoFramesPerSecond = 60
 	maxFrameHistory = 5
 
-	game :Game
 	pseudoFrameCount :int
 	pseudoFrameCountDelta :float
 	pseudoFrameCountLastTrigger :int
@@ -387,40 +386,35 @@ class Display:
 	
 
 	def drawLevel(self, game :Game):
-		self.screen.blit(self.levelSurfaceTemplate, self.levelBoxPos)
+		# self.screen.blit(self.levelSurfaceTemplate, self.levelBoxPos)
 		levelText = self.levelFont.render("LEVEL: "+ str(game.totalLines//10), 1, (255, 255, 255))
-		self.screen.blit(levelText, self.levelBoxPos+self.levelTextPos - Vector2(levelText.get_rect().size)/2)
+		self.screen.blit(levelText, (195 - levelText.get_width()/2 , 417 - levelText.get_height()/2))
 
 	def drawScore(self, game :Game):
-		self.screen.blit(self.scoreSurfaceTemplate, self.scoreBoxPos)
+		# self.screen.blit(self.scoreSurfaceTemplate, self.scoreBoxPos)
 		scoreText = self.scoreFont.render(str(game.score), 1, (255, 255, 255))
-		self.screen.blit(scoreText, self.scoreBoxPos+self.scoreTextPos - Vector2(scoreText.get_rect().size)/2)
+		self.screen.blit(scoreText, (195 - scoreText.get_width()/2 , 656 - scoreText.get_height()/2))
 
 	def drawHold(self, game :Game):
-		self.screen.blit(self.holdSurfaceTemplate, self.holdBoxPos)
+		# self.screen.blit(self.holdSurfaceTemplate, self.holdBoxPos)
 		if game.heldPiece != 0:
 			for x, y in list(map(lambda x: ((15-x)%4, (15-x)//4), game.metaIdToActiveBits[game.heldPiece])):
-				offset = self.nextlistPieceOffsets[game.metaIdToTypeAndRot[game.heldPiece][0]]
-				boardVector = Vector2(x, y)
-				position = self.holdBoxPos+self.holdPiecePos+boardVector*self.minoSize-offset
 				self.screen.blit(
-					self.typeToImage[game.metaIdToTypeAndRot[game.heldPiece][0]], (
-					position,
-					Vector2(self.minoSize, self.minoSize))
+					self.typeToImage[game.metaIdToTypeAndRot[game.heldPiece][0]], (					 # Image 	:pygame.Image
+					int(155+(x*40)-(self.nextlistPieceOffsets[game.metaIdToTypeAndRot[game.heldPiece][0]][0])), # X coord 	:int
+					int(161+(y*40)-(self.nextlistPieceOffsets[game.metaIdToTypeAndRot[game.heldPiece][0]][1])), # Y coord	:int
+					40, 40) 																					 # Image Width, Height :int
 				)
 
 	def drawNextList(self, game :Game):
-		self.screen.blit(self.nextlistSurfaceTemplate, self.nextlistBoxPos)
+		# self.screen.blit(self.nextlistSurfaceTemplate, self.nextlistBoxPos)
 		for i, metaID in enumerate(game.nextList):
 			for x, y in list(map(lambda x: ((15-x)%4, (15-x)//4), game.metaIdToActiveBits[metaID])):
-				offset = self.nextlistPieceOffsets[game.metaIdToTypeAndRot[metaID][0]]
-				boardVector = Vector2(x, y)
-				indexOffset = Vector2(0, (i-1)*self.nextlistIOffset)
-				position = self.nextlistBoxPos+self.nextlistPiecePos+boardVector*self.minoSize-offset+indexOffset
 				self.screen.blit(
-					self.typeToImage[game.metaIdToTypeAndRot[metaID][0]], (
-					position,
-					Vector2(self.minoSize, self.minoSize))
+					self.typeToImage[game.metaIdToTypeAndRot[metaID][0]], (								 # Image 	:pygame.Image
+					int(960 + (x*40)-(self.nextlistPieceOffsets[game.metaIdToTypeAndRot[metaID][0]][0])), 			 # X coord 	:int
+					int(245 + (y*40)-(self.nextlistPieceOffsets[game.metaIdToTypeAndRot[metaID][0]][1])+(165*i)), 	 # Y coord	:int
+					40, 40)																						 # Image Width, Height :int
 				)
 
 
