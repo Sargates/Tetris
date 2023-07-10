@@ -414,7 +414,7 @@ class Display:
 		labelText = pg.font.SysFont('calibri', fontSizePrimary).render("SCORE", 1, (255, 255, 255))
 		scoreText = pg.font.SysFont('calibri', fontSizeSecondary).render(str(game.score), 1, (255, 255, 255))
 		self.screen.blit(labelText, boxPos+(Vector2(boxSize[0], lineSeparatorPos[0][1]+lineSeparatorThickness/2)-Vector2(labelText.get_rect().size))/2)
-		self.screen.blit(scoreText, boxPos+(boxSize-Vector2(scoreText.get_rect().size))/2)
+		self.screen.blit(scoreText, boxPos+(boxSize-Vector2(scoreText.get_rect().size)+Vector2(0, -2*boxBorderThickness+lineSeparatorPos[0][1]+lineSeparatorThickness/2))/2)
 
 	def drawHold(self, game :Game, elements :dict):
 		boxPos, boxSize, boxBorderThickness, boxBorderRadius, fontSize, lineSeparatorPos, lineSeparatorThickness \
@@ -422,7 +422,7 @@ class Display:
 		boxPos = Vector2(boxPos)
 		
 		# draws the rounded rectangle for the given box
-		font = pg.font.SysFont('calibri', fontSize).render("NEXT", 1, (255, 255, 255))
+		font = pg.font.SysFont('calibri', fontSize).render("HOLD", 1, (255, 255, 255))
 		self.screen.blit(font, boxPos+(Vector2(boxSize[0], lineSeparatorPos[0][1]+lineSeparatorThickness/2)-Vector2(font.get_rect().size))/2)
 		pg.draw.rect(self.screen, (255, 255, 255), (*boxPos, *boxSize), boxBorderThickness, boxBorderRadius)
 		pg.draw.line(self.screen, (255, 255, 255), *(boxPos+Vector2(x) for x in lineSeparatorPos), lineSeparatorThickness)
@@ -554,7 +554,6 @@ class Display:
 		if self.debug:
 			self.drawFrameRate()
 
-
 	def pseudoFramesByLevel(self, level):
 		if level > 29:
 			level = 29
@@ -600,7 +599,7 @@ class Display:
 
 		with open('./resolutions.json', 'r') as f:
 			self.resolutionPreset = json.load(f)[f'{width}x{height}']
-		pprint.pprint(self.resolutionPreset)
+		# pprint.pprint(self.resolutionPreset)
 
 		self.playingElements = self.resolutionPreset['playing']
 		self.menuElements = self.resolutionPreset['menu']
@@ -633,18 +632,6 @@ class Display:
 			pg.draw.polygon(shadowTexture, shadowColor, [pg.Vector2(minoSize-1, minoSize-1), pg.Vector2(minoSize-3, minoSize-3), pg.Vector2( 3, minoSize-3), pg.Vector2( 1, minoSize-1)])
 
 			self.typeToShadowImage[k] = shadowTexture
-		
-
-		
-		# self.levelFont = pg.font.SysFont('calibri', self.levelFontSize)
-		# self.levelTextPos = self.levelBoxSize/2
-		# self.scoreTextPos = (self.scoreBoxSize + Vector2(0, self.scoreLineSeparatorPos[0].y+self.scoreLineSeparatorThickness-self.scoreBoxBorderThickness))/2
-		# self.scoreFont = pg.font.SysFont('calibri', self.scoreFontSizeSecondary)
-
-
-
-		# self.shadowSurfaceTemplate = pg.Surface()
-		# self.boardSurfaceTemplate = pg.Surface()
 
 class Controller:
 	def startSinglePlayer():
@@ -703,7 +690,6 @@ class Controller:
 								if game.canPlayMusic:game.themeSong.stop()
 
 					if e.key == pg.K_p: # debug key
-						pprint.pprint(disp.playingElements['pieceOffsets'])
 						disp.debug = not disp.debug
 					if e.key == pg.K_F12:
 						pg.image.save(disp.screen, f"./screenshots/{datetime.datetime.now()}.png")
