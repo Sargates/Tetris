@@ -9,53 +9,9 @@
 		
 	},
 	"1200x900": {
-		"setup": {
-			"holdBoxPos": [80, 50],
-			"holdBoxSize": [230, 270],
-			"holdBoxBorderThickness": 10,
-			"holdBoxBorderRadius": 58,
-			"holdFontSize": 54,
-			"holdLineSeparatorPos": [[0, 78], [230, 78]],
-			"holdLineSeparatorThickness": 8,
-			"hold": null,
-
-			"nextlistBoxPos": [865, 110],
-			"nextlistBoxSize": [270, 620],
-			"nextlistBoxBorderThickness": 10,
-			"nextlistBoxBorderRadius": 36,
-			"nextlistFontSize": 58,
-			"nextlistLineSeparatorPos": [[0, 90], [270, 90]],
-			"nextlistLineSeparatorThickness": 8,
-			"nextlist": null,
-
-			"levelBoxPos": [58, 360],
-			"levelBoxSize": [274, 116],
-			"levelBoxBorderThickness": 10,
-			"levelBoxBorderRadius": 36,
-			"levelFontSize": 58,
-			"level": null,
-
-			"scoreBoxPos": [70, 530],
-			"scoreBoxSize": [250, 188],
-			"scoreBoxBorderThickness": 10,
-			"scoreBoxBorderRadius": 42,
-			"scoreFontSizePrimary": 62,
-			"scoreFontSizeSecondary": 82,
-			"scoreLineSeparatorPos": [[0, 70], [250, 70]],
-			"scoreLineSeparatorThickness": 8,
-			"score": null,
-
-			"shadow": null,
-
-			"boardPosX": 400,
-			"boardPosY": 50,
-			"board": null
-		},
 		"playing": {
-			"generalPieceSize": 40,
-			"hold": null,
-			"nextlistIOffset": 165,
-			"nextlistPieceOffsets": {
+			"minoSize": 40,
+			"pieceOffsets": {
 				"I": [2.0, 1.5],
 				"J": [1.5, 2.0],
 				"L": [1.5, 2.0],
@@ -64,20 +20,74 @@
 				"O": [2.0, 2.0],
 				"T": [1.5, 2.0]
 			},
-			"nextlist": null,
-			"level": null,
-			"score": null,
-			"shadow": null,
-			"board": null
+
+			"hold": [
+				{
+					"boxPos": [80, 50],
+					"boxSize": [230, 270],
+					"boxBorderThickness": 10,
+					"boxBorderRadius": 58,
+					"fontSize": 54,
+					"lineSeparatorPos": [[0, 78], [230, 78]],
+					"lineSeparatorThickness": 8
+				}
+			],
+			"nextlist": [
+				{
+					"boxPos": [865, 110],
+					"boxSize": [270, 620],
+					"boxBorderThickness": 10,
+					"boxBorderRadius": 36,
+					"fontSize": 58,
+					"lineSeparatorPos": [[0, 90], [270, 90]],
+					"lineSeparatorThickness": 8,
+					"indexOffset": 165
+				}
+			],
+			"level": [
+				{
+					"boxPos": [58, 360],
+					"boxSize": [274, 116],
+					"boxBorderThickness": 10,
+					"boxBorderRadius": 36,
+					"fontSize": 58		
+				}
+			],
+			"score": [
+				{
+					"boxPos": [70, 530],
+					"boxSize": [250, 188],
+					"boxBorderThickness": 10,
+					"boxBorderRadius": 42,
+					"fontSizePrimary": 62,
+					"fontSizeSecondary": 82,
+					"lineSeparatorPos": [[0, 70], [250, 70]],
+					"lineSeparatorThickness": 8		
+				}
+			],
+			"piece": [
+				{
+					"boxPos": [400, 50]
+				}
+			],
+			"board": [
+				{
+					"boxPos": [400, 50],
+					"boxSize": [400, 800],
+					"boxBorderThickness": 3,
+					"cellSeparatorThickness": 2
+				}
+			]
 		},
 		"menu": {
-
+			"fontSize": 82
 		},
 		"countdown": {
-
+			"fontSize": 82
 		},
 		"gameover": {
-
+			"gameoverFontSize": 62,
+			"restartingFontSize": 82
 		}
 	}
 }
