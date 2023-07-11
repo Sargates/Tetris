@@ -377,6 +377,20 @@ class Display:
 
 
 	def checkIfKeyShouldExec(self, keycode :int, keys :list[int]):
+		# if not keys[keycode]  or  (not keycode in self.keyFrameCountCache):
+		# 	self.keyFrameCountCache[keycode] = self.pseudoFrameCount
+		# 	return False
+
+		# # passes guard clause if it is a new pseudoframe
+		# if self.pseudoFrameCount <= self.keyFrameCountCache[keycode]:
+		# 	return False
+		# self.keyFrameCountCache[keycode] = self.pseudoFrameCount
+
+		# deltaFrames = self.pseudoFrameCount-self.keyFrameCountCache[keycode]-1
+		# spamFrequency = 8		# in pseudo-frames
+		# delayBeforeSpam = 10 	# in pseudo-frames
+		# return ((deltaFrames < 1) or (deltaFrames-delayBeforeSpam >= 0 and ((deltaFrames-delayBeforeSpam)%spamFrequency) == 0))
+
 		if not keys[keycode]  or  (not keycode in self.keyFrameCountCache):
 			self.keyFrameCountCache[keycode] = -1
 			return False
@@ -660,7 +674,7 @@ class Controller:
 			iFrameCount += 1
 			dt = disp.clock.tick_busy_loop(60)/1000
 			disp.fTimeElapsed += dt
-			disp.pseudoFrameCount = (disp.fTimeElapsed*disp.pseudoFramesPerSecond)//1
+			disp.pseudoFrameCount = math.floor(disp.fTimeElapsed*disp.pseudoFramesPerSecond)
 			game.fTimeElapsed = disp.fTimeElapsed
 			if dt == 0.0: dt = 0.001
 			
@@ -704,6 +718,8 @@ class Controller:
 
 					keys = pg.key.get_pressed()
 					buttons = pg.mouse.get_pressed()
+
+
 
 
 					if disp.checkIfKeyShouldExec(pg.K_LEFT, keys):
