@@ -10,8 +10,8 @@
 	},
 	"1200x900": {
 		"playing": {
-			"minoSize": 40,
 			"pieceOffsets": {
+				"_comment": "do not changes these values",
 				"I": [2.0, 1.5],
 				"J": [1.5, 2.0],
 				"L": [1.5, 2.0],
@@ -20,6 +20,7 @@
 				"O": [2.0, 2.0],
 				"T": [1.5, 2.0]
 			},
+			"minoSize": 40,
 
 			"hold": [
 				{
@@ -28,7 +29,7 @@
 					"boxBorderThickness": 10,
 					"boxBorderRadius": 58,
 					"fontSize": 54,
-					"lineSeparatorPos": [[0, 78], [230, 78]],
+					"lineSeparatorPos": [[0, 78], [229, 78]],
 					"lineSeparatorThickness": 8
 				}
 			],
@@ -39,7 +40,7 @@
 					"boxBorderThickness": 10,
 					"boxBorderRadius": 36,
 					"fontSize": 58,
-					"lineSeparatorPos": [[0, 90], [270, 90]],
+					"lineSeparatorPos": [[0, 90], [269, 90]],
 					"lineSeparatorThickness": 8,
 					"indexOffset": 165
 				}
@@ -50,7 +51,7 @@
 					"boxSize": [274, 116],
 					"boxBorderThickness": 10,
 					"boxBorderRadius": 36,
-					"fontSize": 58		
+					"fontSize": 58
 				}
 			],
 			"score": [
@@ -61,8 +62,8 @@
 					"boxBorderRadius": 42,
 					"fontSizePrimary": 62,
 					"fontSizeSecondary": 82,
-					"lineSeparatorPos": [[0, 70], [250, 70]],
-					"lineSeparatorThickness": 8		
+					"lineSeparatorPos": [[0, 70], [249, 70]],
+					"lineSeparatorThickness": 8
 				}
 			],
 			"piece": [
@@ -86,8 +87,25 @@
 			"fontSize": 82
 		},
 		"gameover": {
-			"gameoverFontSize": 62,
-			"restartingFontSize": 82
+			"_comment": "position is centered on screen so no 'boxPos' key",
+			"headerFontSize": 50,
+			"listFontSize": 40,
+			"boxSize": [720, 800],
+			"boxBorderThickness": 10,
+			"boxBorderRadius": 42,
+			"lineSeparatorPos": [[0, 120], [719, 120]],
+			"lineSeparatorThickness": 8,
+			"elementSpacing": 10
+		},
+		"initialsInput": {
+			"_comment": "position is centered on screen so no 'boxPos' key",
+			"headerFontSize": 42,
+			"inputFontSize": 72,
+			"boxSize": [480, 320],
+			"boxBorderThickness": 10,
+			"boxBorderRadius": 42,
+			"lineSeparatorPos": [[0, 150], [479, 150]],
+			"lineSeparatorThickness": 8
 		}
 	}
 }
