@@ -2,7 +2,7 @@ from copy import deepcopy
 from enum import Enum, auto
 from gc import garbage
 from utilities.signaledge import SignalEdge; from utilities.repeatedPrint import RepeatedPrint as RP
-import random, pygame as pg, math, datetime, json, pprint
+import random, pygame as pg, math, datetime, time, json, pprint, yaml
 from pygame import Vector2
 
 
@@ -152,7 +152,8 @@ class Game:
 		countdown = auto()
 		playing = auto()
 		gameover = auto()
-	
+		initialsInput = auto()
+
 	def moveActivePieceHorz(self, dir :int):
 		if self.checkPieceCollision(self.anchorX+dir, self.anchorY, self.activePiece):
 			return
@@ -191,18 +192,11 @@ class Game:
 		self.totalLines += linesThisPiece
 		self.activePiece = self.nextList.pop(0)
 		if self.canPlayMusic: self.popSound.play()
-		self.addNextPiece()
 		self.canHoldPiece = True
 		self.anchorX = 3
 		self.anchorY = -1
+		self.addNextPiece()
 
-		if self.checkPieceCollision(self.anchorX, self.anchorY, self.activePiece):
-			self.state = self.States.gameover
-
-			if self.canPlayMusic: self.themeSong.stop(); self.gameoverMusic.play()
-			print(self)
-			self.countdownTimer = 4.0
-			
 	def updateDisplayedBoard(self):
 		outBoard = deepcopy(self.gameBoard)
 
@@ -293,16 +287,24 @@ class Game:
 	
 	def addNextPiece(self):
 		newPieceType = self.typeList[random.randint(0, 6)]
-		if self.droughtCounter >= 25:
-			newPieceType = "I"
-			print("Drought Exceeded")
-			self.droughtCounter = 0
-		elif newPieceType == "I":
-			self.droughtCounter = 0
-		else:
-			self.droughtCounter += 1
+			
+		if self.isEasymode:
+			for pieceType, piecesDroughtSize in self.droughtCounter.items():
+				if pieceType == newPieceType:
+					continue
+				if piecesDroughtSize >= 25:
+					newPieceType = pieceType
+					break
+				self.droughtCounter[pieceType] += 1
+			self.droughtCounter[newPieceType] = 0
 
 		self.nextList.append(self.typeAndRotToMeta[newPieceType]['0'])
+
+		
+		if self.checkPieceCollision(self.anchorX, self.anchorY, self.activePiece):
+			if self.canPlayMusic: self.themeSong.stop(); self.gameoverMusic.play()
+			# game over
+			self.state = self.States.initialsInput
 
 	def holdActivePiece(self):
 		if not self.canHoldPiece:
@@ -329,20 +331,21 @@ class Game:
 			newAnchorY += 1
 		return newAnchorY
 
-	def __init__(self):
+	def __init__(self, easyMode :bool):
 		self.gameBoard :list[list[str]] = [['-' for x in range(10)] for x in range(20)]
 		
 		
 		# self.activePiece = 1124
 		self.activePiece :int = self.typeAndRotToMeta[self.typeList[random.randint(0, 6)]]['0']
-		self.droughtCounter = 0
-		self.nextList = []; self.addNextPiece(); self.addNextPiece(); self.addNextPiece()
-		self.canHoldPiece = True
-		self.heldPiece = 0
+		self.droughtCounter = { type: 0 for type in self.typeList }
 		self.anchorX :int= 3
 		self.anchorY :int= -1
+		self.canHoldPiece = True
+		self.heldPiece = 0
 		self.totalLines = 0
 		self.score = 0
+		self.isEasymode = easyMode
+		self.nextList = []; self.addNextPiece(); self.addNextPiece(); self.addNextPiece()
 		
 		self.state = self.States.countdown
 		self.countdownTimer = 3.0
@@ -369,40 +372,33 @@ class Display:
 	pause :bool
 	debug :bool
 
+	highscores = []
+
+	initialsText = ''
+
 	# things for key "listener"
-	keyFrameCountCache = {}
+	perKeyTickCache = {}
 
 	
 	background = pg.image.load('./assets/board.png')
 
 
 	def checkIfKeyShouldExec(self, keycode :int, keys :list[int]):
-		# if not keys[keycode]  or  (not keycode in self.keyFrameCountCache):
-		# 	self.keyFrameCountCache[keycode] = self.pseudoFrameCount
-		# 	return False
-
-		# # passes guard clause if it is a new pseudoframe
-		# if self.pseudoFrameCount <= self.keyFrameCountCache[keycode]:
-		# 	return False
-		# self.keyFrameCountCache[keycode] = self.pseudoFrameCount
-
-		# deltaFrames = self.pseudoFrameCount-self.keyFrameCountCache[keycode]-1
-		# spamFrequency = 8		# in pseudo-frames
-		# delayBeforeSpam = 10 	# in pseudo-frames
-		# return ((deltaFrames < 1) or (deltaFrames-delayBeforeSpam >= 0 and ((deltaFrames-delayBeforeSpam)%spamFrequency) == 0))
-
-		if not keys[keycode]  or  (not keycode in self.keyFrameCountCache):
-			self.keyFrameCountCache[keycode] = -1
+		isPressed = keys[keycode]
+		if not isPressed  or  (not keycode in self.perKeyTickCache):
+			#									V    first pressed     V  V     last trigger     V
+			self.perKeyTickCache[keycode] = [self.pseudoFrameCount, self.pseudoFrameCount]
 			return False
 
-		
-		# self.pseudoFrameCount = (self.fTimeElapsed*self.pseudoFramesPerSecond)
-		self.keyFrameCountCache[keycode] += 1
+		# passes guard clause if it is a new pseudoframe
+		if self.pseudoFrameCount == self.perKeyTickCache[keycode][1]:
+			return False
+		self.perKeyTickCache[keycode][1] = self.pseudoFrameCount
 
-		deltaFrames = self.keyFrameCountCache[keycode]
-		spamFrequency = 4		# in frames
-		delayBeforeSpam = 16 	# in frames
-		return ((deltaFrames < 1) or (deltaFrames >= delayBeforeSpam and ((deltaFrames-delayBeforeSpam)%spamFrequency) == 0))
+		deltaFrames = self.pseudoFrameCount-self.perKeyTickCache[keycode][0]-1
+		spamFrequency = 4		# in pseudo-frames
+		delayBeforeSpam = 16 	# in pseudo-frames
+		return ((deltaFrames < 1) or (deltaFrames-delayBeforeSpam >= 0 and ((deltaFrames-delayBeforeSpam)%spamFrequency) == 0))
 	
 	
 
@@ -477,7 +473,6 @@ class Display:
 					Vector2(self.playingElements['minoSize'], self.playingElements['minoSize']))
 				)
 
-
 	def drawBoard(self, game :Game, elements :dict):
 		boxPos, boxSize, boxBorderThickness, cellSeparatorThickness \
 		= elements.values()
@@ -531,15 +526,91 @@ class Display:
 
 		self.screen.blit(fps_text, (10, 10))
 
+
+	def drawHighScores(self, elements :dict):
+		garbage, headerFontSize, listFontSize, boxSize, boxBorderThickness, boxBorderRadius, lineSeparatorPos, lineSeparatorThickness, elementSpacing \
+		= elements.values()
+
+		screenSize = Vector2(self.screen.get_rect().size)
+		boxSize = Vector2(boxSize)
+
+		# box is centered on screen, so values are in absolute space
+		# draws the rounded rectangle for the given box
+		pg.draw.rect(self.screen, (255, 255, 255), (*((screenSize-boxSize)/2), *boxSize), boxBorderThickness, boxBorderRadius)
+		pg.draw.line(self.screen, (255, 255, 255), *(((screenSize-boxSize)/2)+Vector2(x) for x in lineSeparatorPos), lineSeparatorThickness)
+
+		boxPos = screenSize - boxSize
+
+		headerFont = pg.font.Font('./assets/font.ttf', headerFontSize).render("Highscores", 1, (255, 255, 255))
+		listFont = pg.font.Font('./assets/font.ttf', listFontSize)
+		self.screen.blit(headerFont, (
+			boxPos \
+			 + Vector2(boxSize[0], 2*boxBorderThickness+lineSeparatorPos[0][1]-lineSeparatorThickness/2) \
+			 - Vector2(headerFont.get_rect().size)
+			)/2)
+
+		targetWidth = int((boxSize[0]-lineSeparatorPos[0][1])//listFontSize)
+		for i in range(min(int((boxSize[1]-lineSeparatorPos[0][1])//listFontSize), len(self.highscores))):
+			paddingWidth = targetWidth-len(f"{self.highscores[i][0]}")-len(f"{self.highscores[i][1]}")
+			outString = f"{self.highscores[i][0]}"+"."*paddingWidth+f"{self.highscores[i][1]}"
+			leaderBoardFont = listFont.render(outString, 1, (255, 255, 255))
+			indexOffset = Vector2(0, listFontSize*i+elementSpacing)
+			self.screen.blit(leaderBoardFont, (
+				boxPos \
+				+ Vector2(boxSize[0], 2*(boxBorderThickness+lineSeparatorPos[0][1]+lineSeparatorThickness)) \
+				- Vector2(leaderBoardFont.get_rect().size) \
+				)/2 \
+				+ indexOffset)
+
+
+	def drawInitialsInput(self, elements :dict):
+		garbage, headerFontSize, inputFontSize, boxSize, boxBorderThickness, boxBorderRadius, lineSeparatorPos, lineSeparatorThickness \
+		= elements.values()
+		
+		screenSize = Vector2(self.screen.get_rect().size)
+		boxSize = Vector2(boxSize)
+		boxPos = screenSize - boxSize
+
+		# box is centered on screen, so values are in absolute space
+		# draws the rounded rectangle for the given box
+		pg.draw.rect(self.screen, (255, 255, 255), (*((screenSize-boxSize)/2), *boxSize), boxBorderThickness, boxBorderRadius)
+		pg.draw.line(self.screen, (255, 255, 255), *(((screenSize-boxSize)/2)+Vector2(x) for x in lineSeparatorPos), lineSeparatorThickness)
+		
+
+		headerFontTop = pg.font.Font('./assets/font.ttf', headerFontSize).render("Enter", 1, (255, 255, 255))
+		headerFontBot = pg.font.Font('./assets/font.ttf', headerFontSize).render("your name!", 1, (255, 255, 255))
+		self.screen.blit(headerFontTop, (
+			screenSize \
+			- boxSize \
+			+ Vector2(lineSeparatorPos[1]) \
+			+ Vector2(0, 2*boxBorderThickness-lineSeparatorThickness-headerFontTop.get_rect().size[1]) \
+			- headerFontTop.get_rect().size
+			)/2)
+		self.screen.blit(headerFontBot, (
+			screenSize \
+			- boxSize \
+			+ Vector2(lineSeparatorPos[1]) \
+			+ Vector2(0, 2*boxBorderThickness-lineSeparatorThickness+headerFontBot.get_rect().size[1]) \
+			- headerFontBot.get_rect().size
+			)/2)
+
+		inputText = self.initialsText + "_"*(3-len(self.initialsText))
+		initialsFont = pg.font.Font('./assets/font.ttf', inputFontSize).render(inputText, 1, (255, 255, 255))
+		self.screen.blit(initialsFont, (
+				boxPos \
+				+ Vector2(boxSize[0], boxSize[1]+(lineSeparatorPos[0][1]+lineSeparatorThickness-boxBorderThickness))
+				- Vector2(initialsFont.get_rect().size) \
+				)/2)
+
+
 	def drawWindow(self, game :Game):
 		w, h = self.screen.get_rect().size
-		self.screen.fill((0, 0, 0))
 		match game.state:
 			case game.States.playing:
-				# self.screen.blit(self.background, (0, 0))
+				self.screen.fill((0, 0, 0))
 				
 				# pythonic way to execute respective functions with respective arguments
-				# needs to be changed to accomadate multiple games
+				# needs to be changed to accommodate multiple games
 				[self.drawHold(game, holdElements) for holdElements in self.playingElements['hold']]
 				[self.drawNextlist(game, nextlistElements) for nextlistElements in self.playingElements['nextlist']]
 				[self.drawLevel(game, levelElements) for levelElements in self.playingElements['level']]
@@ -548,19 +619,28 @@ class Display:
 				[self.drawPiece(game, shadowElements) for shadowElements in self.playingElements['piece']]
 
 			case game.States.menu:
+				# guard clause used to examine the board for debugging
+				if self.debug:
+					return
+				self.screen.fill((0, 0, 0))
 				menuText = pg.font.SysFont('calibri', self.menuElements['fontSize']).render("Paused, Esc to unpause", 1, (255, 255, 255))
-				self.screen.blit(menuText, (((w - menuText.get_width())/2 , (h - menuText.get_height()-40)/2)))
+				self.screen.blit(menuText, (((w - menuText.get_width())/2 , (h - menuText.get_height())/2)))
 
 
 			case game.States.countdown:
-				countdownText = pg.font.SysFont('calibri', self.countdownElements['fontSize']).render(str(math.ceil(game.countdownTimer)), 1, (255, 255, 255))
-				self.screen.blit(countdownText, (((w - countdownText.get_width())/2 , (h - countdownText.get_height()-40)/2)))
+				self.screen.fill((0, 0, 0))
+				countdownText = pg.font.SysFont('calibri', self.countdownElements['fontSize']).render(f"Starting in: {math.ceil(game.countdownTimer)}", 1, (255, 255, 255))
+				self.screen.blit(countdownText, ((w - countdownText.get_width())/2 , (h - countdownText.get_height())/2))
 
 			case game.States.gameover:
-				gameoverText = pg.font.SysFont('calibri', self.gameoverElements['gameoverFontSize']).render("Game Over", 1, (255, 255, 255))
-				restartingText = pg.font.SysFont('calibri', self.gameoverElements['restartingFontSize']).render("Restarting...", 1, (255, 255, 255))
-				self.screen.blit(gameoverText, (((w - gameoverText.get_width())/2 , (h - gameoverText.get_height()-40)/2)))
-				self.screen.blit(restartingText, (((w - restartingText.get_width())/2 , (h + gameoverText.get_height()+40-restartingText.get_height())/2)))
+				self.screen.fill((0, 0, 0))
+				self.drawHighScores(self.gameoverElements)
+				
+				# self.drawHighScores(self.gameoverElements)
+			case game.States.initialsInput:
+				self.screen.fill((0, 0, 0))
+				self.drawInitialsInput(self.initialsInputElements)
+
 
 		if len(self.fpsHistory) > self.maxFrameHistory:
 			subtracted = self.fpsHistory.pop(-self.maxFrameHistory-1)
@@ -619,6 +699,7 @@ class Display:
 		self.menuElements = self.resolutionPreset['menu']
 		self.countdownElements = self.resolutionPreset['countdown']
 		self.gameoverElements = self.resolutionPreset['gameover']
+		self.initialsInputElements = self.resolutionPreset['initialsInput']
 
 
 		minoSize = self.playingElements['minoSize']
@@ -650,11 +731,11 @@ class Display:
 class Controller:
 	def startSinglePlayer():
 		disp = Display(1200, 900)
-		disp.keyFrameCountCache = {}
+		disp.perKeyTickCache = {}
 
-		
 		run = True
-		game = Game()
+		game = Game(True)
+
 		disp.pseudoFrameCount = 0
 		disp.pseudoFrameCountDelta = 0
 		disp.pseudoFrameCountLastTrigger = 0
@@ -662,29 +743,13 @@ class Controller:
 		disp.fpsSum = 0.0
 
 		disp.fTimeElapsed = 0
-		iFrameCount = -1
 
 		disp.pause = False
-		disp.debug = True
-
-
+		disp.debug = False
 
 
 		while run:
-			iFrameCount += 1
-			dt = disp.clock.tick_busy_loop(60)/1000
-			disp.fTimeElapsed += dt
-			disp.pseudoFrameCount = math.floor(disp.fTimeElapsed*disp.pseudoFramesPerSecond)
-			game.fTimeElapsed = disp.fTimeElapsed
-			if dt == 0.0: dt = 0.001
-			
-			fps = round(1/min(1, dt))
-			disp.fpsHistory.append(fps)
-			disp.fpsSum += fps
-
-			# RP.formattedRP(f"""
-			# 	{disp.fTimeElapsed}
-			# """)
+			dt = disp.clock.tick_busy_loop()/1000
 
 			disp.drawWindow(game)
 			pg.display.update()
@@ -694,14 +759,70 @@ class Controller:
 					pg.quit()
 					quit()
 				if e.type == pg.KEYDOWN:
-					if e.key == pg.K_ESCAPE:
-						match game.state:
-							case game.States.menu:
+					match game.state:
+						case game.States.menu:
+							if e.key == pg.K_ESCAPE:
 								game.state = game.States.countdown
-								game.countdownTimer = 3.0
-							case game.States.playing:
+								timerList = [3.0, 0.0]
+								game.countdownTimer = timerList[int(disp.debug)]
+							
+						case game.States.playing:
+							if e.key == pg.K_ESCAPE:
 								game.state = game.States.menu
 								if game.canPlayMusic:game.themeSong.stop()
+						
+						case game.States.gameover:
+							if e.key == pg.K_SPACE:
+								game.state = game.States.countdown
+								game.countdownTimer = 3.0
+						
+						case game.States.initialsInput:
+							if e.key == pg.K_BACKSPACE:
+								if len(disp.initialsText) > 0:
+									disp.initialsText = disp.initialsText[:-1]
+							if e.key == pg.K_ESCAPE:
+								with open("./logs/gamelogs.yaml", 'r+') as f:
+									file :dict= yaml.safe_load(f)
+									out = []
+									for id, g in file.items():
+										out.append((g['Initials'], g['Score']))
+									
+									disp.highscores = sorted(out, key=lambda x: x[1], reverse=True)
+								game.state = game.States.gameover
+								game.countdownTimer = 3.0
+							elif e.key == pg.K_RETURN:
+								if len(disp.initialsText) == 3:
+									print("here I love men")
+									game.state = game.States.gameover
+									game.countdownTimer = 4.0
+									with open("./logs/gamelogs.yaml", 'r+') as f:
+										file :dict= yaml.safe_load(f)
+										f.seek(0)
+										file.update({
+											f"Game @ {datetime.datetime.now()}": {
+												"Total Gametime": str(datetime.timedelta(seconds=game.fTimeElapsed)),
+												"Total Lines": game.totalLines,
+												"Level": game.totalLines//10,
+												"Score": game.score,
+												"Drought at Game Over": game.droughtCounter,
+												"Initials": disp.initialsText.upper(),
+											}
+										})
+										# set highscores for displaying in next game-state
+										out = []
+										for id, g in file.items():
+											out.append((g['Initials'], g['Score']))
+										
+										disp.highscores = sorted(out, key=lambda x: x[1], reverse=True)
+
+
+										yaml.safe_dump(file, f)
+							elif len(disp.initialsText) != 3:
+								# Append the pressed key to the input text
+								assert isinstance(e.unicode, str)
+
+								if e.unicode.isalnum():
+									disp.initialsText += e.unicode
 
 					if e.key == pg.K_p: # debug key
 						disp.debug = not disp.debug
@@ -714,13 +835,19 @@ class Controller:
 						disp.pseudoFrameCountDelta -= disp.pseudoFrameCount % disp.pseudoFramesByLevel(game.totalLines//10) + 1
 
 			match game.state:
+
 				case game.States.playing:
+					disp.fTimeElapsed += dt
+					disp.pseudoFrameCount = math.floor(disp.fTimeElapsed*disp.pseudoFramesPerSecond)
+					game.fTimeElapsed = disp.fTimeElapsed
+					if dt == 0.0: dt = 0.001
+					
+					fps = round(1/max(0.001,dt))
+					disp.fpsHistory.append(fps)
+					disp.fpsSum += fps
 
 					keys = pg.key.get_pressed()
 					buttons = pg.mouse.get_pressed()
-
-
-
 
 					if disp.checkIfKeyShouldExec(pg.K_LEFT, keys):
 						game.moveActivePieceHorz(-1)
@@ -733,11 +860,11 @@ class Controller:
 
 					if disp.checkIfKeyShouldExec(pg.K_DOWN, keys):
 						game.stepActivePieceDown()
-						disp.pseudoFrameCountDelta -= disp.pseudoFrameCount % disp.pseudoFramesByLevel(game.totalLines//10) + 1
+						disp.pseudoFrameCountDelta = disp.pseudoFrameCount % disp.pseudoFramesByLevel(game.totalLines//10)-1
 
-					if SignalEdge.getRisingEdge(keys[pg.K_SPACE], pg.K_SPACE):
+					if disp.checkIfKeyShouldExec(pg.K_SPACE, keys):
 						game.dropActivePieceDown()
-						disp.pseudoFrameCountDelta -= disp.pseudoFrameCount % disp.pseudoFramesByLevel(game.totalLines//10) + 1
+						disp.pseudoFrameCountDelta = disp.pseudoFrameCount % disp.pseudoFramesByLevel(game.totalLines//10)-1
 
 					if ((disp.pseudoFrameCount+disp.pseudoFrameCountDelta) % disp.pseudoFramesByLevel(game.totalLines//10)) == 0 and (disp.pseudoFrameCount+disp.pseudoFrameCountDelta) != disp.pseudoFrameCountLastTrigger:
 						disp.pseudoFrameCountLastTrigger = (disp.pseudoFrameCount+disp.pseudoFrameCountDelta)
@@ -745,19 +872,23 @@ class Controller:
 
 				case game.States.menu:
 					pass
+				
+				case game.States.initialsInput:
+					pass
 
 				case game.States.countdown:
 					game.countdownTimer -= dt
-					if game.countdownTimer < 0:
+					if game.countdownTimer <= 0:
 						game.state = game.States.playing
 						if game.canPlayMusic: game.themeSong.play(loops=-1)
 												
 
 				case game.States.gameover:
+					disp.initialsText = ''
 					game.countdownTimer -= dt
-					if game.countdownTimer < 0:
+					if game.countdownTimer <= 0:
 
-						game = Game()
+						game = Game(game.isEasymode)
 						game.state = game.States.countdown
 
 
