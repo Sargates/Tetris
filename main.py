@@ -1,17 +1,24 @@
 from copy import deepcopy
 from enum import Enum, auto
-from gc import garbage
 from utilities.signaledge import SignalEdge; from utilities.repeatedPrint import RepeatedPrint as RP
 import random, pygame as pg, math, datetime, time, json, pprint, yaml
 from pygame import Vector2
 
 
 # 
-# Tetris, by Nick Gates, 5/31/23
-# Requires Pygame package, setup.py included
+# Tetris, by Nick Glenn, 5/31/23
+# Requires Pygame package
 # 
 
 pg.init()
+
+
+class GameStates(Enum):
+	menu = auto()
+	countdown = auto()
+	playing = auto()
+	gameover = auto()
+	initialsInput = auto()
 class Game:
 	#	    0      90    180    270
 	# I : 03840  08738  00240  17476
@@ -49,46 +56,46 @@ class Game:
 
 	typeAndRotToMeta = {
 		"I" : {
-			"0": 3840,
-			"R": 8738,
-			"2": 240,
-			"L": 17476,
+			"0": 0xF00,
+			"R": 0x2222,
+			"2": 0xF0,
+			"L": 0x4444,
 		},
 		"J" : {
-			"0": 2272,
-			"R": 1604,
-			"2": 226,
-			"L": 1100,
+			"0": 0x8E0,
+			"R": 0x644,
+			"2": 0xE2,
+			"L": 0x44C,
 		},
 		"L" : {
-			"0": 736,
-			"R": 1094,
-			"2": 232,
-			"L": 3140,
+			"0": 0x2E0,
+			"R": 0x446,
+			"2": 0xE8,
+			"L": 0xC44,
 		},
 		"O" : {
-			"0": 1632,
-			"R": 1632,
-			"2": 1632,
-			"L": 1632,
+			"0": 0x660,
+			"R": 0x660,
+			"2": 0x660,
+			"L": 0x660,
 		},
 		"S" : {
-			"0": 1728,
-			"R": 1122,
-			"2": 108,
-			"L": 2244,
+			"0": 0x6C0,
+			"R": 0x462,
+			"2": 0x6C,
+			"L": 0x8C4,
 		},
 		"T" : {
-			"0": 1248,
-			"R": 1124,
-			"2": 228,
-			"L": 1220,
+			"0": 0x4E0,
+			"R": 0x464,
+			"2": 0xE4,
+			"L": 0x4C4,
 		},
 		"Z" : {
-			"0": 3168,
-			"R": 612,
-			"2": 198,
-			"L": 1224,
+			"0": 0xC60,
+			"R": 0x264,
+			"2": 0xC6,
+			"L": 0x4C8,
 		}
 	}
 	typeList = ["I", "J", "L", "O", "S", "T", "Z"]
@@ -147,12 +154,6 @@ class Game:
 				maxY = y
 		metaIdToXYBounds[k] = [minX, maxX, minY, maxY]
 
-	class States(Enum):
-		menu = auto()
-		countdown = auto()
-		playing = auto()
-		gameover = auto()
-		initialsInput = auto()
 
 	def moveActivePieceHorz(self, dir :int):
 		if self.checkPieceCollision(self.anchorX+dir, self.anchorY, self.activePiece):
@@ -175,7 +176,7 @@ class Game:
 				self.gameBoard.pop(self.anchorY+i)
 				self.gameBoard.insert(0, ['-' for x in range(10)])
 				linesThisPiece += 1
-		
+
 		match linesThisPiece:
 			case 0:
 				self.score += 0
@@ -304,7 +305,7 @@ class Game:
 		if self.checkPieceCollision(self.anchorX, self.anchorY, self.activePiece):
 			if self.canPlayMusic: self.themeSong.stop(); self.gameoverMusic.play()
 			# game over
-			self.state = self.States.initialsInput
+			self.state = GameStates.initialsInput
 
 	def holdActivePiece(self):
 		if not self.canHoldPiece:
@@ -347,7 +348,7 @@ class Game:
 		self.isEasymode = easyMode
 		self.nextList = []; self.addNextPiece(); self.addNextPiece(); self.addNextPiece()
 		
-		self.state = self.States.countdown
+		self.state = GameStates.countdown
 		self.countdownTimer = 3.0
 	
 	def __str__(self):
@@ -606,7 +607,7 @@ class Display:
 	def drawWindow(self, game :Game):
 		w, h = self.screen.get_rect().size
 		match game.state:
-			case game.States.playing:
+			case GameStates.playing:
 				self.screen.fill((0, 0, 0))
 				
 				# pythonic way to execute respective functions with respective arguments
@@ -618,7 +619,7 @@ class Display:
 				[self.drawBoard(game, boardElements) for boardElements in self.playingElements['board']]
 				[self.drawPiece(game, shadowElements) for shadowElements in self.playingElements['piece']]
 
-			case game.States.menu:
+			case GameStates.menu:
 				# guard clause used to examine the board for debugging
 				if self.debug:
 					return
@@ -627,17 +628,17 @@ class Display:
 				self.screen.blit(menuText, (((w - menuText.get_width())/2 , (h - menuText.get_height())/2)))
 
 
-			case game.States.countdown:
+			case GameStates.countdown:
 				self.screen.fill((0, 0, 0))
 				countdownText = pg.font.SysFont('calibri', self.countdownElements['fontSize']).render(f"Starting in: {math.ceil(game.countdownTimer)}", 1, (255, 255, 255))
 				self.screen.blit(countdownText, ((w - countdownText.get_width())/2 , (h - countdownText.get_height())/2))
 
-			case game.States.gameover:
+			case GameStates.gameover:
 				self.screen.fill((0, 0, 0))
 				self.drawHighScores(self.gameoverElements)
 				
 				# self.drawHighScores(self.gameoverElements)
-			case game.States.initialsInput:
+			case GameStates.initialsInput:
 				self.screen.fill((0, 0, 0))
 				self.drawInitialsInput(self.initialsInputElements)
 
@@ -760,23 +761,23 @@ class Controller:
 					quit()
 				if e.type == pg.KEYDOWN:
 					match game.state:
-						case game.States.menu:
+						case GameStates.menu:
 							if e.key == pg.K_ESCAPE:
-								game.state = game.States.countdown
+								game.state = GameStates.countdown
 								timerList = [3.0, 0.0]
 								game.countdownTimer = timerList[int(disp.debug)]
 							
-						case game.States.playing:
+						case GameStates.playing:
 							if e.key == pg.K_ESCAPE:
-								game.state = game.States.menu
+								game.state = GameStates.menu
 								if game.canPlayMusic:game.themeSong.stop()
 						
-						case game.States.gameover:
+						case GameStates.gameover:
 							if e.key == pg.K_SPACE:
-								game.state = game.States.countdown
+								game.state = GameStates.countdown
 								game.countdownTimer = 3.0
 						
-						case game.States.initialsInput:
+						case GameStates.initialsInput:
 							if e.key == pg.K_BACKSPACE:
 								if len(disp.initialsText) > 0:
 									disp.initialsText = disp.initialsText[:-1]
@@ -788,12 +789,11 @@ class Controller:
 										out.append((g['Initials'], g['Score']))
 									
 									disp.highscores = sorted(out, key=lambda x: x[1], reverse=True)
-								game.state = game.States.gameover
+								game.state = GameStates.gameover
 								game.countdownTimer = 3.0
 							elif e.key == pg.K_RETURN:
 								if len(disp.initialsText) == 3:
-									print("here I love men")
-									game.state = game.States.gameover
+									game.state = GameStates.gameover
 									game.countdownTimer = 4.0
 									with open("./logs/gamelogs.yaml", 'r+') as f:
 										file :dict= yaml.safe_load(f)
@@ -828,7 +828,7 @@ class Controller:
 						disp.debug = not disp.debug
 					if e.key == pg.K_F12:
 						pg.image.save(disp.screen, f"./screenshots/{datetime.datetime.now()}.png")
-					if game.state != game.States.playing:
+					if game.state != GameStates.playing:
 						continue
 					if e.key == pg.K_c:
 						game.holdActivePiece()
@@ -836,7 +836,7 @@ class Controller:
 
 			match game.state:
 
-				case game.States.playing:
+				case GameStates.playing:
 					disp.fTimeElapsed += dt
 					disp.pseudoFrameCount = math.floor(disp.fTimeElapsed*disp.pseudoFramesPerSecond)
 					game.fTimeElapsed = disp.fTimeElapsed
@@ -870,26 +870,25 @@ class Controller:
 						disp.pseudoFrameCountLastTrigger = (disp.pseudoFrameCount+disp.pseudoFrameCountDelta)
 						game.stepActivePieceDown()
 
-				case game.States.menu:
+				case GameStates.menu:
 					pass
 				
-				case game.States.initialsInput:
+				case GameStates.initialsInput:
 					pass
 
-				case game.States.countdown:
+				case GameStates.countdown:
 					game.countdownTimer -= dt
 					if game.countdownTimer <= 0:
-						game.state = game.States.playing
+						game.state = GameStates.playing
 						if game.canPlayMusic: game.themeSong.play(loops=-1)
 												
 
-				case game.States.gameover:
+				case GameStates.gameover:
 					disp.initialsText = ''
 					game.countdownTimer -= dt
 					if game.countdownTimer <= 0:
-
 						game = Game(game.isEasymode)
-						game.state = game.States.countdown
+						game.state = GameStates.gameover
 
 
 if __name__ == "__main__":

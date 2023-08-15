@@ -1,20 +1,14 @@
 # Tetris
-Just a little Tetris project I whipped up over a day or two
+Just a Tetris project I whipped up over the course of a week.
 
-Requires Pygame module for Python
-https://www.pygame.org/
+## Requirements:
+Python 3.10+ (for match cases)\
+[Pygame module for Python](https://www.pygame.org/) (Does not work using [Pygame-ce](https://pyga.me/), I do not know why)
 
-LEFT, RIGHT, UP, DOWN refer to the arrow keys
-
-Controls:
-LEFT/RIGHT for left/right movement of the active piece,
-UP/Z for clockwise/counter-clockwise rotation
-DOWN to step the active piece down one cell
-C to hold active piece
-SPACE to drop piece to bottom
+## Controls:
+LEFT/RIGHT for left/right movement of the active piece\
+UP/Z for clockwise/counter-clockwise rotation\
+DOWN to step the active piece down one cell\
+C to hold active piece\
+SPACE to drop piece to bottom\
 ESC for pause
-
-
-Permissions:
-You are not allowed to claim ownership of this project.
-Feel free to download and modify to your heart's content.
